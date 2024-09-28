@@ -70,7 +70,7 @@ def ask_follow_up_questions(sut: str, function: str, knowledge_base_content: str
         {file_contents}
         ```
         # 7. Repeat steps 5 - 6 atleast 5 times to ensure you have a comprehensive list of dependencies. If you dont do this and lay out the thought process, you will be fired.
-        # 7. Return the list of dependencies that are not defined in either the main file or the potentially relevant files.
+        # 8. Return the list of dependencies that are not defined in either the main file or the potentially relevant files.
     """.format(knowledge_base_content=knowledge_base_content, function=function, sut_content=sut, file_contents=file_contents)
 @ell.simple(model="openai/gpt-4o", temperature=0.0)
 def unit_test_case_generation(sut: str, function: str, knowledge_base_content: str, additional_information: str, test_project_file: str, file_contents: list = None):
