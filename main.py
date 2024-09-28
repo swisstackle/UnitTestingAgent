@@ -1,13 +1,11 @@
 import ell
 from openai import Client
 import os
-import subprocess
 import argparse
-import glob
-import shutil
 
+ell_key = os.getenv("MODALBOX_KEY")
 openai_client = Client(
-  api_key= 'sk-lZx6251ATDfQEr1RtAWO9PNdi36cJeKwbdEOOc5HOwyCxt3nPuZD4fkn8xkw4wXfKomtaJUXy2Eanh7RweBozxg2PIuXuC09NreI3MyMEnGiQffX57cJaC',
+  api_key=ell_key,
   base_url="https://api.model.box/v1",
 )
 ell.init(default_client=openai_client, store='./logdir', autocommit=True, verbose=True)
@@ -175,6 +173,7 @@ def unit_test_case_criticism(sut: str, function: str, knowledge_base_content: st
     You MUST answer in markdown format.
     You MUST return an unordered list of missing unit test cases.
     You MUST respect the additional information given by the user prompt. You will get fired if you don't.
+    You MUST ensure that all possible combinations of inputs are tested (mathematically speaking), if you dont do this, you will get fired.
     # Knowledge Base:
     ```
     {knowledge_base_content}
