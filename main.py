@@ -202,6 +202,10 @@ if __name__ == "__main__":
     parser.add_argument('--sut', type=str, required=True, help='Path to the file where the system under test is located')
     parser.add_argument('--function', type=str, required=True, help='The function to be tested')
     parser.add_argument('--additional_information', type=str, required=False, help='Any additional information about the prompt')
+    parser.add_argument('--model', type=str, required=False, help='The model to use for the prompt')
+    parser.add_argument('--csproj', type=str, required=True, help='Path to the csproj file of the test project')
+
+
     # parse the arguments and log them for debugging
     args = parser.parse_args()
     with open(args.knowledge, 'r') as file:
