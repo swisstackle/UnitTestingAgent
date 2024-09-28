@@ -73,9 +73,9 @@ def ask_follow_up_questions(sut: str, function: str, knowledge_base_content: str
         ```
         # 7. Repeat steps 5 - 6 atleast 5 times to ensure you have a comprehensive list of dependencies. If you dont do this and lay out the thought process, you will be fired.
         # 7. Return the list of dependencies that are not defined in either the main file or the potentially relevant files.
-    """.format(knowledge_base_content=knowledge_base_content, function=function, sut_content=sut_content, file_contents=file_contents)
+    """.format(knowledge_base_content=knowledge_base_content, function=function, sut_content=sut, file_contents=file_contents)
 @ell.simple(model="openai/gpt-4o", temperature=0.0)
-def unit_test_case_generation(sut: str, function: str, knowledge_base_content: str, additional_information: str, file_contents: list = None):
+def unit_test_case_generation(sut: str, function: str, knowledge_base_content: str, additional_information: str, test_project_file: str, file_contents: list = None):
     """
     You are an agent responsible for generating unit test cases for the function under test.
     You will be given the function under test, the file where it is located, a list of potentially relevant files and the knowledge base.
@@ -84,6 +84,7 @@ def unit_test_case_generation(sut: str, function: str, knowledge_base_content: s
     You MUST return an unordered list of the unit test cases.
     You MUST share your thought process with the user as outlined in the user prompt. If you don't share your thought process, you will be fired.
     You MUST cover every possible path through the function under test. If you don't do this, you will be fired.
+    You MUST respect the additional information given by the user prompt. You will get fired if you don't.
     """
 
     return """
@@ -107,11 +108,15 @@ def unit_test_case_generation(sut: str, function: str, knowledge_base_content: s
         # Additional Information:
         ```
         {additional_information}
+
+        # Test Project File:
         ```
-    """.format(additional_information=additional_information, knowledge_base_content=knowledge_base_content, function=function, sut_content=sut_content, file_contents=file_contents)
+        {test_project_file}
+        ```
+    """.format(additional_information=additional_information, knowledge_base_content=knowledge_base_content, function=function, sut_content=sut, file_contents=file_contents, test_project_file=test_project_file)
 
 @ell.simple(model="openai/gpt-4o", temperature=0.0)
-def unit_test_case_refiner(sut: str, function: str, knowledge_base_content: str, feedback: str, old_unit_test_cases: str, additional_information: str, file_contents: list = None):
+def unit_test_case_refiner(sut: str, function: str, knowledge_base_content: str, feedback: str, old_unit_test_cases: str, additional_information: str, test_project_file: str, file_contents: list = None):
     """
     You are an agent responsible for refining and adding unit test cases for the function under test based on feedback from your teacher.
     You will be given the the feedback from your teacher,  the function under test, the file where it is located, a list of potentially relevant files and the knowledge base.
@@ -153,10 +158,14 @@ def unit_test_case_refiner(sut: str, function: str, knowledge_base_content: str,
         ```
         {additional_information}
         ```
-    """.format(additional_information=additional_information,feedback=feedback, old_unit_test_cases=old_unit_test_cases, knowledge_base_content=knowledge_base_content, function=function, sut_content=sut_content, file_contents=file_contents)
+        # Test Project File:
+        ```
+        {test_project_file}
+        ```
+    """.format(additional_information=additional_information,feedback=feedback, old_unit_test_cases=old_unit_test_cases, knowledge_base_content=knowledge_base_content, function=function, sut_content=sut, file_contents=file_contents, test_project_file=test_project_file)
 
 @ell.simple(model="openai/gpt-4o", temperature=0.0)
-def unit_test_case_criticism(sut: str, function: str, knowledge_base_content: str, unit_test_cases: str, additional_information: str, file_contents: list = None):
+def unit_test_case_criticism(sut: str, function: str, knowledge_base_content: str, unit_test_cases: str, additional_information: str, test_project_file: str, file_contents: list = None):
     """
     You are an agent responsible for judging if your computer science student did a good job with creating unit test cases for the function under test. You are extremely critical and disagreeable.
     Do not hold back or do not try to be politically correct. Feel free to insult the student intelligence by saying "you are smarter than this" if you think they could have done better.
@@ -165,6 +174,7 @@ def unit_test_case_criticism(sut: str, function: str, knowledge_base_content: st
     The goal is to cover every possible path through the function under test. If you miss something, you will get fired as a teacher.
     You MUST answer in markdown format.
     You MUST return an unordered list of missing unit test cases.
+    You MUST respect the additional information given by the user prompt. You will get fired if you don't.
     # Knowledge Base:
     ```
     {knowledge_base_content}
@@ -181,8 +191,12 @@ def unit_test_case_criticism(sut: str, function: str, knowledge_base_content: st
     ```
     {file_contents}
     ```
+    # Test Project File:
+    ```
+    {test_project_file}
+    ```
     You must provide atleast 1 ciriticism unless you reallt cant find one. If you really cant find one, say "FINISHED".
-    """.format(knowledge_base_content=knowledge_base_content, function=function, sut_content=sut_content, file_contents=file_contents)
+    """.format(knowledge_base_content=knowledge_base_content, function=function, sut_content=sut, file_contents=file_contents, test_project_file=test_project_file)
 
     return """
         Hello teacher, here are the unit test cases and my thought process you need to judge:
@@ -217,7 +231,9 @@ if __name__ == "__main__":
                 file_contents.append(file.read())
     with open(args.sut, 'r') as file:
         sut_content = file.read()
-    test_cases = unit_test_case_generation(sut_content, args.function, knowledge_base_content, args.additional_information, file_contents)
+    with open(args.csproj, 'r') as file:
+        test_project_file = file.read()
+    test_cases = unit_test_case_generation(sut_content, args.function, knowledge_base_content, args.additional_information, test_project_file, file_contents)
     criticism = unit_test_case_criticism(sut_content, args.function, knowledge_base_content, test_cases, args.additional_information, file_contents)
     test_cases = unit_test_case_refiner(sut_content, args.function, knowledge_base_content, criticism, test_cases, args.additional_information, file_contents)
     criticism = unit_test_case_criticism(sut_content, args.function, knowledge_base_content, test_cases, args.additional_information, file_contents)
