@@ -233,8 +233,8 @@ if __name__ == "__main__":
     with open(args.csproj, 'r') as file:
         test_project_file = file.read()
     test_cases = unit_test_case_generation(sut_content, args.function, knowledge_base_content, args.additional_information, test_project_file, file_contents)
-    criticism = unit_test_case_criticism(sut_content, args.function, knowledge_base_content, test_cases, args.additional_information, file_contents)
-    test_cases = unit_test_case_refiner(sut_content, args.function, knowledge_base_content, criticism, test_cases, args.additional_information, file_contents)
-    criticism = unit_test_case_criticism(sut_content, args.function, knowledge_base_content, test_cases, args.additional_information, file_contents)
-    test_cases = unit_test_case_refiner(sut_content, args.function, knowledge_base_content, criticism, test_cases, args.additional_information, file_contents)
+    criticism = unit_test_case_criticism(sut_content, args.function, knowledge_base_content, test_cases, args.additional_information, test_project_file, file_contents)
+    test_cases = unit_test_case_refiner(sut_content, args.function, knowledge_base_content, criticism, test_cases, args.additional_information, test_project_file, file_contents)
+    criticism = unit_test_case_criticism(sut_content, args.function, knowledge_base_content, test_cases, args.additional_information, test_project_file, file_contents)
+    test_cases = unit_test_case_refiner(sut_content, args.function, knowledge_base_content, criticism, test_cases, args.additional_information, test_project_file, file_contents)
     print(test_cases)
