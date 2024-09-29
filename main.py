@@ -2,6 +2,7 @@ import ell
 from openai import Client
 import os
 import argparse
+import subprocess
 
 ell_key = os.getenv("MODALBOX_KEY")
 openai_client = Client(
@@ -208,6 +209,169 @@ def unit_test_case_criticism(sut: str, function: str, knowledge_base_content: st
         ```
     """.format(additional_information=additional_information, unit_test_cases=unit_test_cases)
 
+@ell.simple(model="openai/gpt-4o", temperature=0.0)
+def build_unit_tests(function: str, sut: str, test_cases: str, test_project_file: str, additional_information: str, knowledge_base_content: str, file_contents: list = None):
+    """
+    You are an agent responsible for building the generated unit test cases.
+    You will be provided with the system under test (sut), the function name,
+    the generated unit test cases, the test project `.csproj` file content, and any additional information.
+
+    Your task is to compile the unit tests to ensure they are syntactically correct and
+    ready for execution. You MUST NOT execute the tests at this stage.
+
+    You MUST answer in markdown format.
+    You MUST return a confirmation message indicating success or detailed error messages if the build fails.
+    """
+    return f"""
+        Follow these steps to build the unit tests for the function `{function}`:
+
+        # 1. Integrate the unit test cases into the test project using the following system under test where the function lays:
+        ```csharp
+        {sut}
+        ```
+
+        # 2. Ensure that the unit test cases are properly placed within the test project directory.
+        ```csharp
+        {test_cases}
+        ```
+
+        # 3. Make sure to utilize the additional information provided to you:
+        ```
+        {additional_information}
+        ```
+
+        # Make sure to follow the knowledge base relligiously:
+        ```
+        {knowledge_base_content}
+        ```
+
+        # Here are other potentially relevant files:
+        ```
+        {file_contents}
+        ```
+
+        # 4. Validate the syntax and structure of the unit tests.
+        If there are any syntax errors or issues with the structure, provide detailed error messages.
+        Otherwise, confirm that the build was successful.
+    """.format(knowledge_base_content=knowledge_base_content, function=function, sut=sut, test_cases=test_cases, test_project_file=test_project_file, additional_information=additional_information, file_contents=file_contents)
+
+@ell.simple(model="openai/gpt-4o", temperature=0.0)
+def execute_build_and_tests(test_project_directory: str):
+    """
+    You are an agent responsible for executing the build and test commands for the unit tests.
+    You will be provided with the path to the `.csproj` file and the directory containing the test project.
+
+    Your task is to perform the following:
+    1. Navigate to the test project directory.
+    2. Execute `dotnet build` to compile the tests.
+    3. If the build is successful, execute `dotnet test` to run the tests.
+    4. Capture and return any error messages or confirmation messages from the terminal.
+
+    You MUST answer in markdown format.
+    """
+    try:
+        # Navigate to the test project directory and execute build
+        build_process = subprocess.run(
+            ["dotnet", "build"],
+            cwd=test_project_directory,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            check=True
+        )
+        build_output = build_process.stdout
+
+        # Execute the tests only if build was successful
+        test_process = subprocess.run(
+            ["dotnet", "test"],
+            cwd=test_project_directory,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            check=True
+        )
+        test_output = test_process.stdout
+
+        return f"""
+            ```bash
+            {build_output}
+            ```
+            ```bash
+            {test_output}
+            ```
+            **Build and Tests Executed Successfully.**
+        """
+    except subprocess.CalledProcessError as e:
+        error_message = e.stderr if e.stderr else e.stdout
+        return f"""
+            ```bash
+            {error_message}
+            ```
+            **An error occurred during build or testing. Please review the above error messages.**
+        """
+
+@ell.simple(model="openai/gpt-4o", temperature=0.0)
+def refine_code_based_on_errors(sut: str, test_cases: str, build_errors: str, additional_information: str, knowledge_base_content: str, file_contents: list = None):
+    """
+    You are an agent responsible for refining the unit test code based on error messages.
+    You will be provided with the system under test (sut), the generated unit test cases,
+    any error messages from the build and test execution, and additional information.
+
+    Your task is to analyze the error messages and refine the unit test code to resolve the issues.
+    You MUST NOT create entirely new test cases but focus on fixing the existing ones.
+
+    You MUST answer in markdown format.
+    You MUST return the refined unit test code along with explanations for the changes made.
+    """
+    if not build_errors.strip():
+        return """
+            **No errors detected during the build and testing process.**
+
+            Your unit test cases are syntactically correct and ready for execution. No refinement needed at this stage.
+        """
+
+    return f"""
+        Analyze the following error messages and refine the unit test cases accordingly:
+
+        # Error Messages:
+        ```bash
+        {build_errors}
+        ```
+
+        # System Under Test (SUT):
+        ```csharp
+        {sut}
+        ```
+
+        # Original Unit Test Cases:
+        ```csharp
+        {test_cases}
+        ```
+        # Potentially Relevant Files:
+        ```
+        {file_contents}
+        ```
+        # Additional Information:
+        ```
+        {additional_information}
+        ```
+        # Make sure to follow the knowledge base relligiously:
+        ```
+        {knowledge_base_content}
+        ```
+
+        # Refined Unit Test Cases:
+        ```csharp
+        // Refined unit tests based on the error messages
+        // [Provide the corrected code here]
+        ```
+
+        # Explanation:
+        - **Error 1:** [Description of the first error and how it was resolved]
+        - **Error 2:** [Description of the second error and how it was resolved]
+        - ...
+    """
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Process files and prompt for knowledge generation.")
     parser.add_argument('--files', type=str, nargs='+', required=False, help='List of relevant files for the prompt (relative filepaths)')
@@ -232,9 +396,71 @@ if __name__ == "__main__":
         sut_content = file.read()
     with open(args.csproj, 'r') as file:
         test_project_file = file.read()
-    test_cases = unit_test_case_generation(sut_content, args.function, knowledge_base_content, args.additional_information, test_project_file, file_contents)
-    criticism = unit_test_case_criticism(sut_content, args.function, knowledge_base_content, test_cases, args.additional_information, test_project_file, file_contents)
-    test_cases = unit_test_case_refiner(sut_content, args.function, knowledge_base_content, criticism, test_cases, args.additional_information, test_project_file, file_contents)
-    criticism = unit_test_case_criticism(sut_content, args.function, knowledge_base_content, test_cases, args.additional_information, test_project_file, file_contents)
-    test_cases = unit_test_case_refiner(sut_content, args.function, knowledge_base_content, criticism, test_cases, args.additional_information, test_project_file, file_contents)
-    print(test_cases)
+
+    # Step 1: Generate Unit Test Cases
+    test_cases = unit_test_case_generation(
+        sut_content,
+        args.function,
+        knowledge_base_content,
+        args.additional_information,
+        test_project_file,
+        file_contents
+    )
+
+    # Step 2: Criticize the Generated Test Cases
+    criticism = unit_test_case_criticism(
+        sut_content,
+        args.function,
+        knowledge_base_content,
+        test_cases,
+        args.additional_information,
+        test_project_file,
+        file_contents
+    )
+
+    # Step 3: Refine the Test Cases Based on Criticism
+    refined_test_cases = unit_test_case_refiner(
+        sut_content,
+        args.function,
+        knowledge_base_content,
+        criticism,
+        test_cases,
+        args.additional_information,
+        test_project_file,
+        file_contents
+    )
+
+    # Step 4: Build Unit Tests
+    build_results = build_unit_tests(
+        args.function,
+        sut_content,
+        refined_test_cases,
+        test_project_file,
+        args.additional_information,
+        knowledge_base_content,
+        file_contents
+    )
+
+    # Step 5: Execute Build and Tests
+    execution_results = execute_build_and_tests(
+        os.path.dirname(args.csproj),
+    )
+
+    # Step 6: Extract Build Errors (if any)
+    import re
+
+    # Extract error messages from build_results
+    build_errors_match = re.search(r'```bash\n(.*?)\n```', build_results, re.DOTALL)
+    build_errors = build_errors_match.group(1).strip() if build_errors_match else ""
+
+    # Step 7: Refine Code Based on Build Errors
+    final_test_cases = refine_code_based_on_errors(
+        sut_content,
+        refined_test_cases,
+        build_errors,
+        args.additional_information,
+        knowledge_base_content,
+        file_contents
+    )
+
+    print(final_test_cases)
