@@ -1,4 +1,5 @@
 import ell
+from ell import Field
 from openai import Client
 import os
 import argparse
@@ -209,19 +210,39 @@ def unit_test_case_criticism(sut: str, function: str, knowledge_base_content: st
         ```
     """.format(additional_information=additional_information, unit_test_cases=unit_test_cases)
 
-@ell.simple(model="openai/gpt-4o", temperature=0.0)
-def build_unit_tests(function: str, sut: str, test_cases: str, test_project_file: str, additional_information: str, knowledge_base_content: str, file_contents: list = None):
-    """
-    You are an agent responsible for building the generated unit test cases.
-    You will be provided with the system under test (sut), the function name,
-    the generated unit test cases, the test project `.csproj` file content, and any additional information.
+@ell.tool()
+def create_file(
+    filepath: str = Field(description="The path where the file will be created."),
+    content: str = Field(description="The content to write into the file."),
+):
+    """Creates a file at the specified filepath with the given content."""
+    try:
+        with open(filepath, 'w') as file:
+            file.write(content)
+        return f"File '{filepath}' created successfully."
+    except Exception as e:
+        return f"Failed to create file '{filepath}': {str(e)}"
 
-    Your task is to compile the unit tests to ensure they are syntactically correct and
-    ready for execution. You MUST NOT execute the tests at this stage.
-
-    You MUST answer in markdown format.
-    You MUST return a confirmation message indicating success or detailed error messages if the build fails.
+@ell.complex(model="openai/gpt-4o", tools=[create_file])
+def build_unit_tests(
+    function: str,
+    sut: str,
+    test_cases: str,
+    test_project_file: str,
+    additional_information: str,
+    knowledge_base_content: str,
+    file_contents: list = None
+):
     """
+    Compiles and builds unit tests for the specified function.
+    
+    Use the `create_file` tool to generate a file containing the unit tests.
+    
+    Steps:
+    1. You are given the file where the function under test is located, the name of the function under test, the unit test cases, important additional information, the knowledge base. Create the unit test cases into the test project.
+    2. Use the `create_file` tool to create a file with the generated unit tests. For the arguments for `create_file`, use filepath = {test_project_file} and content should equal the unit tests that you generated.
+    3. Return a confirmation message or detailed error messages if the build fails.
+    """.format(knowledge_base_content=knowledge_base_content, function=function, sut=sut, test_cases=test_cases, test_project_file=test_project_file, additional_information=additional_information, file_contents=file_contents)
     return f"""
         Follow these steps to build the unit tests for the function `{function}`:
 
@@ -249,26 +270,9 @@ def build_unit_tests(function: str, sut: str, test_cases: str, test_project_file
         ```
         {file_contents}
         ```
-
-        # 4. Validate the syntax and structure of the unit tests.
-        If there are any syntax errors or issues with the structure, provide detailed error messages.
-        Otherwise, confirm that the build was successful.
     """.format(knowledge_base_content=knowledge_base_content, function=function, sut=sut, test_cases=test_cases, test_project_file=test_project_file, additional_information=additional_information, file_contents=file_contents)
 
-@ell.simple(model="openai/gpt-4o", temperature=0.0)
 def execute_build_and_tests(test_project_directory: str):
-    """
-    You are an agent responsible for executing the build and test commands for the unit tests.
-    You will be provided with the path to the `.csproj` file and the directory containing the test project.
-
-    Your task is to perform the following:
-    1. Navigate to the test project directory.
-    2. Execute `dotnet build` to compile the tests.
-    3. If the build is successful, execute `dotnet test` to run the tests.
-    4. Capture and return any error messages or confirmation messages from the terminal.
-
-    You MUST answer in markdown format.
-    """
     try:
         # Navigate to the test project directory and execute build
         build_process = subprocess.run(
@@ -429,13 +433,14 @@ if __name__ == "__main__":
         test_project_file,
         file_contents
     )
-
+    print(refined_test_cases)
     # Step 4: Build Unit Tests
+    test_project_directory = os.path.dirname(args.csproj)
     build_results = build_unit_tests(
         args.function,
         sut_content,
         refined_test_cases,
-        test_project_file,
+        test_project_directory,
         args.additional_information,
         knowledge_base_content,
         file_contents
