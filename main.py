@@ -210,20 +210,8 @@ def unit_test_case_criticism(sut: str, function: str, knowledge_base_content: st
         ```
     """.format(additional_information=additional_information, unit_test_cases=unit_test_cases)
 
-@ell.tool()
-def create_file(
-    filepath: str = Field(description="The path where the file will be created."),
-    content: str = Field(description="The content to write into the file."),
-):
-    """Creates a file at the specified filepath with the given content."""
-    try:
-        with open(filepath, 'w') as file:
-            file.write(content)
-        return f"File '{filepath}' created successfully."
-    except Exception as e:
-        return f"Failed to create file '{filepath}': {str(e)}"
 
-@ell.complex(model="openai/gpt-4o", tools=[create_file])
+@ell.simple(model="openai/gpt-4o")
 def build_unit_tests(
     function: str,
     sut: str,
@@ -231,48 +219,74 @@ def build_unit_tests(
     test_project_file: str,
     additional_information: str,
     knowledge_base_content: str,
-    file_contents: list = None
+    file_contents: list = None,
 ):
     """
-    Compiles and builds unit tests for the specified function.
-    
-    Use the `create_file` tool to generate a file containing the unit tests.
-    
-    Steps:
-    1. You are given the file where the function under test is located, the name of the function under test, the unit test cases, important additional information, the knowledge base. Create the unit test cases into the test project.
-    2. Use the `create_file` tool to create a file with the generated unit tests. For the arguments for `create_file`, use filepath = {test_project_file} and content should equal the unit tests that you generated.
-    3. Return a confirmation message or detailed error messages if the build fails.
-    """.format(knowledge_base_content=knowledge_base_content, function=function, sut=sut, test_cases=test_cases, test_project_file=test_project_file, additional_information=additional_information, file_contents=file_contents)
-    return f"""
-        Follow these steps to build the unit tests for the function `{function}`:
+    This method sends the system prompt and the user prompt to the LLM.
+    The system prompt is used to guide the LLM in building the unit test cases.
+    The user prompt is used to provide the LLM with the necessary information to build the unit test cases.
+    The goal is to create code without errors and exceptions.
+    """
+    system_prompt = """
+    You are an expert in C# and .NET. You are an expert in creating unit test cases for .NET applications.
+    You are given the file where the function under test is located, the name of the function under test, the unit test cases, important additional information, the knowledge base. Create the unit test cases into the test project.
+    The code must be between ```csharp tags. Dont put the individual functions in ```csharp tags, but put the whole code in ```csharp tags. If you do not do this, you will be fired.
+    You MUST show your thought process for building the unit test cases.
+    """
+
+    user_prompt = f"""
+        Follow these steps to build the unit tests for the function `{{function}}`:
 
         # 1. Integrate the unit test cases into the test project using the following system under test where the function lays:
         ```csharp
-        {sut}
+        {{sut}}
         ```
 
         # 2. Ensure that the unit test cases are properly placed within the test project directory.
         ```csharp
-        {test_cases}
+        {{test_cases}}
         ```
 
         # 3. Make sure to utilize the additional information provided to you:
         ```
-        {additional_information}
+        {{additional_information}}
         ```
 
         # Make sure to follow the knowledge base relligiously:
         ```
-        {knowledge_base_content}
+        {{knowledge_base_content}}
         ```
 
         # Here are other potentially relevant files:
         ```
-        {file_contents}
+        {{file_contents}}
         ```
     """.format(knowledge_base_content=knowledge_base_content, function=function, sut=sut, test_cases=test_cases, test_project_file=test_project_file, additional_information=additional_information, file_contents=file_contents)
 
-def execute_build_and_tests(test_project_directory: str):
+    return [
+        ell.system(system_prompt),
+        ell.user(user_prompt)
+    ]
+
+def create_test_file(test_cases: str, test_project_file: str):
+    """
+    This method createsa test file and inserts the code in test_cases into it.
+    If the file already exists, it will be overwritten.
+    We will use try catch to handle the file creation.
+    The code in test_cases is between ```csharo tags (markdown formatting).
+    This function first extracts the code between the ```csharp tags and then writes it to the test project file.
+    """
+    try:
+        # Extract the code between the ```csharp tags
+        test_cases_code = str(test_cases).split("```csharp")[1].split("```")[0]
+        print("test cases code: " + test_cases_code)
+        print("test project file: " + test_project_file)
+        with open(test_project_file, 'w') as file:
+            file.write(test_cases_code)
+    except Exception as e:
+        print(f"Failed to create test file '{test_project_file}': {str(e)}")
+
+def execute_build_and_tests(test_project_directory: str, test_file_path:str):
     try:
         # Navigate to the test project directory and execute build
         build_process = subprocess.run(
@@ -287,7 +301,7 @@ def execute_build_and_tests(test_project_directory: str):
 
         # Execute the tests only if build was successful
         test_process = subprocess.run(
-            ["dotnet", "test"],
+            ["dotnet", "test", test_file_path],
             cwd=test_project_directory,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -313,55 +327,76 @@ def execute_build_and_tests(test_project_directory: str):
             ```
             **An error occurred during build or testing. Please review the above error messages.**
         """
-
 @ell.simple(model="openai/gpt-4o", temperature=0.0)
-def refine_code_based_on_errors(sut: str, test_cases: str, build_errors: str, additional_information: str, knowledge_base_content: str, file_contents: list = None):
+def refine_code_based_on_errors(sut: str, test_cases: str, function: str, build_errors: str, additional_information: str, knowledge_base_content: str, test_project_file: str, file_contents: list = None):
     """
+        This method sends the system prompt and the user prompt to the LLM.
+        The system prompt is used to guide the LLM in refining the unit test code based on error messages.
+        The user prompt is used to provide the LLM with the necessary information to refine the unit test code.
+        The goal is to create code without errors and exceptions.
+        args:
+            function: the function under test
+            sut: the file where the function under test is located
+            test_cases: the unit test cases code
+            build_errors: the build errors
+            additional_information: any additional information about how to create the unit test cases
+            knowledge_base_content: the knowledge base content
+            test_project_file: the test project file (csproj file)
+            file_contents: the potentially relevant files
+    """
+    system_prompt = """
     You are an agent responsible for refining the unit test code based on error messages.
     You will be provided with the system under test (sut), the generated unit test cases,
     any error messages from the build and test execution, and additional information.
-
     Your task is to analyze the error messages and refine the unit test code to resolve the issues.
     You MUST NOT create entirely new test cases but focus on fixing the existing ones.
-
     You MUST answer in markdown format.
     You MUST return the refined unit test code along with explanations for the changes made.
+    You MUST show your thought process for refining the unit test cases.
+    The code must be between ```csharp tags. If you do not do this, you will be fired.
     """
-    if not build_errors.strip():
-        return """
+
+    user_prompt = """
             **No errors detected during the build and testing process.**
 
             Your unit test cases are syntactically correct and ready for execution. No refinement needed at this stage.
         """
-
-    return f"""
+    user_prompt_with_errors = f"""
         Analyze the following error messages and refine the unit test cases accordingly:
-
+        # Function Under Test:
+        ```csharp
+        {{function}}
+        ```
         # Error Messages:
         ```bash
-        {build_errors}
+        {{build_errors}}
         ```
 
         # System Under Test (SUT):
         ```csharp
-        {sut}
+        {{sut}}
         ```
 
         # Original Unit Test Cases:
         ```csharp
-        {test_cases}
+        {{test_cases}}
         ```
         # Potentially Relevant Files:
         ```
-        {file_contents}
+        {{file_contents}}
         ```
         # Additional Information:
         ```
-        {additional_information}
+        {{additional_information}}
         ```
         # Make sure to follow the knowledge base relligiously:
         ```
-        {knowledge_base_content}
+        {{knowledge_base_content}}
+        ```
+
+        # Test Project File:
+        ```csharp
+        {{test_project_file}}
         ```
 
         # Refined Unit Test Cases:
@@ -374,10 +409,19 @@ def refine_code_based_on_errors(sut: str, test_cases: str, build_errors: str, ad
         - **Error 1:** [Description of the first error and how it was resolved]
         - **Error 2:** [Description of the second error and how it was resolved]
         - ...
-    """
+    """.format(knowledge_base_content=knowledge_base_content,build_errors=build_errors, function=function, sut=sut, test_cases=test_cases, test_project_file=test_project_file, additional_information=additional_information, file_contents=file_contents)
+    if not build_errors.strip():
+        return [
+            ell.system(system_prompt),
+            ell.user(user_prompt)
+        ]
+    return [
+        ell.system(system_prompt),
+        ell.user(user_prompt_with_errors)
+    ]
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Process files and prompt for knowledge generation.")
+def main():
+    parser = argparse.ArgumentParser(description="Generate and execute unit tests.")
     parser.add_argument('--files', type=str, nargs='+', required=False, help='List of relevant files for the prompt (relative filepaths)')
     parser.add_argument('--knowledge', type=str, required=True, help='A path to the knowledge base (txt or md file)')
     parser.add_argument('--sut', type=str, required=True, help='Path to the file where the system under test is located')
@@ -385,9 +429,11 @@ if __name__ == "__main__":
     parser.add_argument('--additional_information', type=str, required=False, help='Any additional information about the prompt')
     parser.add_argument('--model', type=str, required=False, help='The model to use for the prompt')
     parser.add_argument('--csproj', type=str, required=True, help='Path to the csproj file of the test project')
+    parser.add_argument('--test_file', type=str, required=True, help='Path where the test file will be created')
+    args = parser.parse_args()
 
-
-    # parse the arguments and log them for debugging
+    # Initialize the optimizer
+        # parse the arguments and log them for debugging
     args = parser.parse_args()
     with open(args.knowledge, 'r') as file:
         knowledge_base_content = file.read()
@@ -401,6 +447,7 @@ if __name__ == "__main__":
     with open(args.csproj, 'r') as file:
         test_project_file = file.read()
 
+
     # Step 1: Generate Unit Test Cases
     test_cases = unit_test_case_generation(
         sut_content,
@@ -408,64 +455,60 @@ if __name__ == "__main__":
         knowledge_base_content,
         args.additional_information,
         test_project_file,
-        file_contents
+        file_contents if args.files else None
     )
-
     # Step 2: Criticize the Generated Test Cases
-    criticism = unit_test_case_criticism(
-        sut_content,
-        args.function,
-        knowledge_base_content,
-        test_cases,
-        args.additional_information,
-        test_project_file,
-        file_contents
-    )
+    # criticism = unit_test_case_criticism(
+    #     sut_content,
+    #     args.function,
+    #     knowledge_base_content,
+    #     test_cases,
+    #     args.additional_information,
+    #     test_project_file,
+    #     file_contents if args.files else None
+    # )
+    # test_cases = unit_test_case_refiner(
+    #     sut_content,
+    #     args.function,
+    #     knowledge_base_content,
+    #     criticism,
+    #     test_cases,
+    #     args.additional_information,
+    #     test_project_file,
+    #     file_contents if args.files else None
+    # )
+    #
+    build_result = ""
+    while("Build and Tests Executed Successfully" not in build_result):
+        unit_tests = build_unit_tests(
+            function=args.function,
+            sut=sut_content,
+            test_cases=test_cases,
+            test_project_file=test_project_file,
+            additional_information=args.additional_information,
+            knowledge_base_content=knowledge_base_content,
+            file_contents=file_contents if args.files else None
+        )
+        # Generate unit tests
+        unit_tests = refine_code_based_on_errors(
+            sut=sut_content,
+            test_cases=unit_tests,
+            build_errors=build_result,
+            additional_information=args.additional_information,
+            knowledge_base_content=knowledge_base_content,
+            test_project_file=test_project_file,
+            file_contents=file_contents if args.files else None,
+            function=args.function
+        )
+ 
+        create_test_file(unit_tests, args.test_file)
+        print("created test file in " + args.test_file)
+        # Execute the build and tests
+        build_result = execute_build_and_tests(os.path.dirname(args.csproj), args.test_file)
+        if "Build and Tests Executed Successfully" in build_result:
+            print("Success! All tests passed.")
+        else:
+            print("Tests failed. Build errors:\n" + build_result)
 
-    # Step 3: Refine the Test Cases Based on Criticism
-    refined_test_cases = unit_test_case_refiner(
-        sut_content,
-        args.function,
-        knowledge_base_content,
-        criticism,
-        test_cases,
-        args.additional_information,
-        test_project_file,
-        file_contents
-    )
-    print(refined_test_cases)
-    # Step 4: Build Unit Tests
-    test_project_directory = os.path.dirname(args.csproj)
-    build_results = build_unit_tests(
-        args.function,
-        sut_content,
-        refined_test_cases,
-        test_project_directory,
-        args.additional_information,
-        knowledge_base_content,
-        file_contents
-    )
-
-    # Step 5: Execute Build and Tests
-    execution_results = execute_build_and_tests(
-        os.path.dirname(args.csproj),
-    )
-
-    # Step 6: Extract Build Errors (if any)
-    import re
-
-    # Extract error messages from build_results
-    build_errors_match = re.search(r'```bash\n(.*?)\n```', build_results, re.DOTALL)
-    build_errors = build_errors_match.group(1).strip() if build_errors_match else ""
-
-    # Step 7: Refine Code Based on Build Errors
-    final_test_cases = refine_code_based_on_errors(
-        sut_content,
-        refined_test_cases,
-        build_errors,
-        args.additional_information,
-        knowledge_base_content,
-        file_contents
-    )
-
-    print(final_test_cases)
+if __name__ == "__main__":
+    main()
