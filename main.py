@@ -12,7 +12,7 @@ openai_client = Client(
 )
 ell.init(default_client=openai_client, store='./logdir', autocommit=True, verbose=True)
 
-@ell.simple(model="openai/gpt-4o", temperature=0.0)
+@ell.simple(model="openai/gpt-4o-mini", temperature=0.0)
 def ask_follow_up_questions(sut: str, function: str, knowledge_base_content: str, file_contents: list = None):
     """
         You are an agent responsible for verifying the availability of all necessary files for the task.
@@ -74,7 +74,7 @@ def ask_follow_up_questions(sut: str, function: str, knowledge_base_content: str
         # 7. Repeat steps 5 - 6 atleast 5 times to ensure you have a comprehensive list of dependencies. If you dont do this and lay out the thought process, you will be fired.
         # 8. Return the list of dependencies that are not defined in either the main file or the potentially relevant files.
     """.format(knowledge_base_content=knowledge_base_content, function=function, sut_content=sut, file_contents=file_contents)
-@ell.simple(model="openai/gpt-4o", temperature=0.0)
+@ell.simple(model="openai/gpt-4o-mini", temperature=0.0)
 def unit_test_case_generation(sut: str, function: str, knowledge_base_content: str, additional_information: str, test_project_file: str, file_contents: list = None):
     """
     You are an agent responsible for generating unit test cases for the function under test.
@@ -115,7 +115,7 @@ def unit_test_case_generation(sut: str, function: str, knowledge_base_content: s
         ```
     """.format(additional_information=additional_information, knowledge_base_content=knowledge_base_content, function=function, sut_content=sut, file_contents=file_contents, test_project_file=test_project_file)
 
-@ell.simple(model="openai/gpt-4o", temperature=0.0)
+@ell.simple(model="openai/gpt-4o-mini", temperature=0.0)
 def unit_test_case_refiner(sut: str, function: str, knowledge_base_content: str, feedback: str, old_unit_test_cases: str, additional_information: str, test_project_file: str, file_contents: list = None):
     """
     You are an agent responsible for refining and adding unit test cases for the function under test based on feedback from your teacher.
@@ -164,7 +164,7 @@ def unit_test_case_refiner(sut: str, function: str, knowledge_base_content: str,
         ```
     """.format(additional_information=additional_information,feedback=feedback, old_unit_test_cases=old_unit_test_cases, knowledge_base_content=knowledge_base_content, function=function, sut_content=sut, file_contents=file_contents, test_project_file=test_project_file)
 
-@ell.simple(model="openai/gpt-4o", temperature=0.0)
+@ell.simple(model="openai/gpt-4o-mini", temperature=0.0)
 def unit_test_case_criticism(sut: str, function: str, knowledge_base_content: str, unit_test_cases: str, additional_information: str, test_project_file: str, file_contents: list = None):
     """
     You are an agent responsible for judging if your computer science student did a good job with creating unit test cases for the function under test. You are extremely critical and disagreeable.
@@ -211,7 +211,7 @@ def unit_test_case_criticism(sut: str, function: str, knowledge_base_content: st
     """.format(additional_information=additional_information, unit_test_cases=unit_test_cases)
 
 
-@ell.simple(model="openai/gpt-4o")
+@ell.simple(model="openai/gpt-4o-mini")
 def build_unit_tests(
     function: str,
     sut: str,
@@ -286,6 +286,22 @@ def create_test_file(test_cases: str, test_project_file: str):
     except Exception as e:
         print(f"Failed to create test file '{test_project_file}': {str(e)}")
 
+@ell.tool()
+def rewrite_test_project_file(
+    test_project_file_path: str = Field(description="The path to the test project file (csproj). The variable is called test_project_file_path. Do not include anything else but the path. Make sure the file path is in the right format: for example: C:\\Users\\user\\Documents\\test.csproj Note how the backslashes are escaped only once." ),
+    test_project_file_content: str = Field(description="The content of the test project file (csproj). The variable is called test_project_file. Do not include anything else but the content."),
+):
+    with open(test_project_file_path, 'w') as file:
+        file.write(test_project_file_content)
+
+@ell.tool()
+def install_nuget_package(
+    test_project_file_path: str = Field(description="The path to the test project file (csproj). The variable is called test_project_file_path. Do not include anything else but the path. Make sure the file path has the correct format: for example: C:\\Users\\user\\Documents\\test.csproj"),
+    nuget_package: str = Field(description="The nuget package to install. Do not include anything else but the package name."),
+):
+    # install the nuget package using inside the test project directory
+    subprocess.run(["dotnet", "add", "package", nuget_package], cwd=os.path.dirname(test_project_file_path), check=True)
+
 def execute_build_and_tests(test_project_directory: str, test_file_path:str):
     try:
         # Navigate to the test project directory and execute build
@@ -327,8 +343,8 @@ def execute_build_and_tests(test_project_directory: str, test_file_path:str):
             ```
             **An error occurred during build or testing. Please review the above error messages.**
         """
-@ell.simple(model="openai/gpt-4o", temperature=0.0)
-def refine_code_based_on_errors(sut: str, test_cases: str, function: str, build_errors: str, additional_information: str, knowledge_base_content: str, test_project_file: str, file_contents: list = None):
+@ell.complex(model="openai/gpt-4o-mini", temperature=0.0, tools=[rewrite_test_project_file, install_nuget_package])
+def refine_code_based_on_errors(sut: str, test_cases: str, test_project_file_path: str, function: str, build_errors: str, additional_information: str, knowledge_base_content: str, test_project_file: str, file_contents: list = None):
     """
         This method sends the system prompt and the user prompt to the LLM.
         The system prompt is used to guide the LLM in refining the unit test code based on error messages.
@@ -354,6 +370,8 @@ def refine_code_based_on_errors(sut: str, test_cases: str, function: str, build_
     You MUST return the refined unit test code along with explanations for the changes made.
     You MUST show your thought process for refining the unit test cases.
     The code must be between ```csharp tags. If you do not do this, you will be fired.
+    You can use the rewrite_test_project_file tool to rewrite the test project file if there is need.
+    You can use the install_nuget_package tool to install the nuget package if there is need.
     """
 
     user_prompt = """
@@ -393,8 +411,11 @@ def refine_code_based_on_errors(sut: str, test_cases: str, function: str, build_
         ```
         {{knowledge_base_content}}
         ```
-
-        # Test Project File:
+        # test_project_file_path:
+        ```
+        {{test_project_file_path}}
+        ```
+        # test_project_file:
         ```csharp
         {{test_project_file}}
         ```
@@ -409,7 +430,7 @@ def refine_code_based_on_errors(sut: str, test_cases: str, function: str, build_
         - **Error 1:** [Description of the first error and how it was resolved]
         - **Error 2:** [Description of the second error and how it was resolved]
         - ...
-    """.format(knowledge_base_content=knowledge_base_content,build_errors=build_errors, function=function, sut=sut, test_cases=test_cases, test_project_file=test_project_file, additional_information=additional_information, file_contents=file_contents)
+    """.format(knowledge_base_content=knowledge_base_content,test_project_file_path=test_project_file_path, build_errors=build_errors, function=function, sut=sut, test_cases=test_cases, test_project_file=test_project_file, additional_information=additional_information, file_contents=file_contents)
     if not build_errors.strip():
         return [
             ell.system(system_prompt),
@@ -478,17 +499,27 @@ def main():
     #     file_contents if args.files else None
     # )
     #
+    unit_tests = build_unit_tests(
+        function=args.function,
+        sut=sut_content,
+        test_cases=test_cases,
+        test_project_file=test_project_file,
+        additional_information=args.additional_information,
+        knowledge_base_content=knowledge_base_content,
+        file_contents=file_contents if args.files else None
+        )
     build_result = ""
     while("Build and Tests Executed Successfully" not in build_result):
-        unit_tests = build_unit_tests(
-            function=args.function,
-            sut=sut_content,
-            test_cases=test_cases,
-            test_project_file=test_project_file,
-            additional_information=args.additional_information,
-            knowledge_base_content=knowledge_base_content,
-            file_contents=file_contents if args.files else None
-        )
+        if "```csharp" in unit_tests:
+            create_test_file(unit_tests, args.test_file)
+            print("created test file in " + args.test_file)
+        # Execute the build and tests
+        build_result = execute_build_and_tests(os.path.dirname(args.csproj), args.test_file)
+
+        if "Build and Tests Executed Successfully" in build_result:
+            print("Success! All tests passed.")
+        else:
+            print("Tests failed. Build errors:\n" + build_result)
         # Generate unit tests
         unit_tests = refine_code_based_on_errors(
             sut=sut_content,
@@ -498,17 +529,9 @@ def main():
             knowledge_base_content=knowledge_base_content,
             test_project_file=test_project_file,
             file_contents=file_contents if args.files else None,
-            function=args.function
+            function=args.function,
+            test_project_file_path=rf'{args.csproj}'
         )
- 
-        create_test_file(unit_tests, args.test_file)
-        print("created test file in " + args.test_file)
-        # Execute the build and tests
-        build_result = execute_build_and_tests(os.path.dirname(args.csproj), args.test_file)
-        if "Build and Tests Executed Successfully" in build_result:
-            print("Success! All tests passed.")
-        else:
-            print("Tests failed. Build errors:\n" + build_result)
 
 if __name__ == "__main__":
     main()
