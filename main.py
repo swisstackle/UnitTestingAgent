@@ -4,6 +4,7 @@ from openai import Client
 import os
 import argparse
 import subprocess
+import re
 
 ell_key = os.getenv("MODALBOX_KEY")
 openai_client = Client(
@@ -292,8 +293,12 @@ def rewrite_test_project_file(
     test_project_file_content: str = Field(description="The content of the test project file (csproj). The variable is called test_project_file. Do not include anything else but the content."),
 ):
     test_project_file_path = test_project_file_path.replace('/', '\\')
-    with open(test_project_file_path, 'w') as file:
-        file.write(test_project_file_content)
+    try:
+        with open(test_project_file_path, 'w') as file:
+            file.write(test_project_file_content)
+        return f"Successfully rewritten test project file in {test_project_file_path}"
+    except Exception as e:
+        return f"Error in rewrite_test_project_file: {str(e)}"
 
 @ell.tool()
 def install_nuget_package(
@@ -302,13 +307,18 @@ def install_nuget_package(
 ):
     # install the nuget package using inside the test project directory
     test_project_file_path = test_project_file_path.replace('/', '\\')
-    subprocess.run(["dotnet", "add", "package", nuget_package], cwd=os.path.dirname(test_project_file_path), check=True)
+    try:
+        subprocess.run(["dotnet", "add", "package", nuget_package], cwd=os.path.dirname(test_project_file_path), check=True)
+        return f"Successfully installed nuget package {nuget_package} in {test_project_file_path}"
+    except Exception as e:
+        return f"Error in install_nuget_package: {str(e)}"
+
 
 def execute_build_and_tests(test_project_directory: str, test_file_path:str):
     try:
         # Navigate to the test project directory and execute build
         build_process = subprocess.run(
-            ["dotnet", "build"],
+            ["dotnet", "build", "-consoleloggerparameters:ErrorsOnly"],
             cwd=test_project_directory,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -346,7 +356,7 @@ def execute_build_and_tests(test_project_directory: str, test_file_path:str):
             **An error occurred during build or testing. Please review the above error messages.**
         """
 @ell.complex(model="openai/gpt-4o-mini", temperature=0.0, tools=[rewrite_test_project_file, install_nuget_package])
-def refine_code_based_on_errors(sut: str, test_cases: str, test_project_file_path: str, function: str, build_errors: str, additional_information: str, knowledge_base_content: str, test_project_file: str, file_contents: list = None):
+def refine_code_based_on_errors(sut: str, test_cases: str, test_project_file_path: str, function: str, build_errors: str, additional_information: str, knowledge_base_content: str, test_project_file: str, file_contents: list = None, tool_outputs: str = None):
     """
         This method sends the system prompt and the user prompt to the LLM.
         The system prompt is used to guide the LLM in refining the unit test code based on error messages.
@@ -374,6 +384,8 @@ def refine_code_based_on_errors(sut: str, test_cases: str, test_project_file_pat
     The code must be between ```csharp tags. If you do not do this, you will be fired.
     You can use the rewrite_test_project_file tool to rewrite the test project file if there is need.
     You can use the install_nuget_package tool to install any nuget package if there is need.
+    You are also potentially given tool outputs from past tool calls. Those tool called might have errors or warnings that you need to fix. 
+    <important>If the tool errors indicate that the nuget package doesnt exist, dont try to install the same package twice. Either try a different variation of the name of the package or try a completely different approach</important>
     """
 
     user_prompt = """
@@ -421,6 +433,10 @@ def refine_code_based_on_errors(sut: str, test_cases: str, test_project_file_pat
         ```csharp
         {{test_project_file}}
         ```
+        # Tool Outputs:
+        ```
+        {{tool_outputs}}
+        ```
 
         # Refined Unit Test Cases:
         ```csharp
@@ -432,7 +448,7 @@ def refine_code_based_on_errors(sut: str, test_cases: str, test_project_file_pat
         - **Error 1:** [Description of the first error and how it was resolved]
         - **Error 2:** [Description of the second error and how it was resolved]
         - ...
-    """.format(knowledge_base_content=knowledge_base_content,test_project_file_path=test_project_file_path.replace('\\', '/'), build_errors=build_errors, function=function, sut=sut, test_cases=test_cases, test_project_file=test_project_file, additional_information=additional_information, file_contents=file_contents)
+    """.format(knowledge_base_content=knowledge_base_content,test_project_file_path=test_project_file_path.replace('\\', '/'), build_errors=build_errors, function=function, sut=sut, test_cases=test_cases, test_project_file=test_project_file, additional_information=additional_information, file_contents=file_contents, tool_outputs=tool_outputs)
     if not build_errors.strip():
         return [
             ell.system(system_prompt),
@@ -523,6 +539,7 @@ def main():
         else:
             print("Tests failed. Build errors:\n" + build_result)
         # Generate unit tests
+        tool_outputs = tool_outputs if 'tool_outputs' in locals() else ""
         unit_tests = refine_code_based_on_errors(
             sut=sut_content,
             test_cases=unit_tests,
@@ -532,8 +549,12 @@ def main():
             test_project_file=test_project_file,
             file_contents=file_contents if args.files else None,
             function=args.function,
-            test_project_file_path=rf'{args.csproj}'
+            test_project_file_path=rf'{args.csproj}',
+            tool_outputs=tool_outputs
         )
-
+        # call all tool functions in unit_tests
+        # build a concentated string of the outputs of the tool calls
+        tool_outputs = unit_tests.call_tools_and_collect_as_message()
+        print(tool_outputs)
 if __name__ == "__main__":
     main()
