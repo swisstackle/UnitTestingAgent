@@ -291,6 +291,7 @@ def rewrite_test_project_file(
     test_project_file_path: str = Field(description="The path to the test project file (csproj). The variable is called test_project_file_path. Do not include anything else but the path. Make sure the file path is in the right format: for example: C:\\Users\\user\\Documents\\test.csproj Note how the backslashes are escaped only once." ),
     test_project_file_content: str = Field(description="The content of the test project file (csproj). The variable is called test_project_file. Do not include anything else but the content."),
 ):
+    test_project_file_path = test_project_file_path.replace('/', '\\')
     with open(test_project_file_path, 'w') as file:
         file.write(test_project_file_content)
 
@@ -300,6 +301,7 @@ def install_nuget_package(
     nuget_package: str = Field(description="The nuget package to install. Do not include anything else but the package name."),
 ):
     # install the nuget package using inside the test project directory
+    test_project_file_path = test_project_file_path.replace('/', '\\')
     subprocess.run(["dotnet", "add", "package", nuget_package], cwd=os.path.dirname(test_project_file_path), check=True)
 
 def execute_build_and_tests(test_project_directory: str, test_file_path:str):
@@ -371,7 +373,7 @@ def refine_code_based_on_errors(sut: str, test_cases: str, test_project_file_pat
     You MUST show your thought process for refining the unit test cases.
     The code must be between ```csharp tags. If you do not do this, you will be fired.
     You can use the rewrite_test_project_file tool to rewrite the test project file if there is need.
-    You can use the install_nuget_package tool to install the nuget package if there is need.
+    You can use the install_nuget_package tool to install any nuget package if there is need.
     """
 
     user_prompt = """
@@ -423,14 +425,14 @@ def refine_code_based_on_errors(sut: str, test_cases: str, test_project_file_pat
         # Refined Unit Test Cases:
         ```csharp
         // Refined unit tests based on the error messages
-        // [Provide the corrected code here]
+        // []
         ```
 
         # Explanation:
         - **Error 1:** [Description of the first error and how it was resolved]
         - **Error 2:** [Description of the second error and how it was resolved]
         - ...
-    """.format(knowledge_base_content=knowledge_base_content,test_project_file_path=test_project_file_path, build_errors=build_errors, function=function, sut=sut, test_cases=test_cases, test_project_file=test_project_file, additional_information=additional_information, file_contents=file_contents)
+    """.format(knowledge_base_content=knowledge_base_content,test_project_file_path=test_project_file_path.replace('\\', '/'), build_errors=build_errors, function=function, sut=sut, test_cases=test_cases, test_project_file=test_project_file, additional_information=additional_information, file_contents=file_contents)
     if not build_errors.strip():
         return [
             ell.system(system_prompt),
