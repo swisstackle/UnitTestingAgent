@@ -5,6 +5,8 @@ import os
 import argparse
 import subprocess
 import re
+from pydantic import BaseModel, Field
+from typing import List
 
 ell_key = os.getenv("MODALBOX_KEY")
 openai_client = Client(
@@ -211,6 +213,15 @@ def unit_test_case_criticism(sut: str, function: str, knowledge_base_content: st
         ```
     """.format(additional_information=additional_information, unit_test_cases=unit_test_cases)
 
+class ActionSummary(BaseModel):
+    action: str = Field(description="The action that was taken. Be detailed. Don't only summarize what was done, but also how and why it was done. You're summary can only be 200 characters long. Example: 'Changed the name space of the BankService from Tests.BankService to Engine.BankService'")
+
+class RefinedUnitTests(BaseModel):
+    new_unit_test_code: str = Field(description="The new unit test code. Make sure it is valid C# code without ```csharp tags.")
+    new_test_project_file_content: str = Field(description="The new content of the test project file (csproj). The variable is called test_project_file. Do not include anything else but the content.")
+    thought_process: str = Field(description="The thought process that was used to refine the unit test code or take other actions such as installing nuget packages.")
+    tool_calls: List[str] = Field(description="The tool calls that were used to refine the unit test code or take other actions such as installing nuget packages. Include the details of the tool call.")
+    action_taken: str = Field(description="The action that was taken. Be detailed. Don't only summarize what was done, but also how and why it was done. You're summary can only be 200 characters long. Example: 'Changed the name space of the BankService from Tests.BankService to Engine.BankService'")
 
 @ell.simple(model="openai/gpt-4o-mini")
 def build_unit_tests(
@@ -280,8 +291,6 @@ def create_test_file(test_cases: str, test_project_file: str):
     try:
         # Extract the code between the ```csharp tags
         test_cases_code = str(test_cases).split("```csharp")[1].split("```")[0]
-        print("test cases code: " + test_cases_code)
-        print("test project file: " + test_project_file)
         with open(test_project_file, 'w') as file:
             file.write(test_cases_code)
     except Exception as e:
@@ -355,37 +364,58 @@ def execute_build_and_tests(test_project_directory: str, test_file_path:str):
             ```
             **An error occurred during build or testing. Please review the above error messages.**
         """
-@ell.complex(model="openai/gpt-4o-mini", temperature=0.0, tools=[rewrite_test_project_file, install_nuget_package])
-def refine_code_based_on_errors(sut: str, test_cases: str, test_project_file_path: str, function: str, build_errors: str, additional_information: str, knowledge_base_content: str, test_project_file: str, file_contents: list = None, tool_outputs: str = None):
+
+@ell.complex(model="openai/gpt-4o-mini", temperature=0.0, response_format=ActionSummary)
+def summarize_action(action_taken: str, unit_tests_old: str, unit_tests_new: str):
     """
-        This method sends the system prompt and the user prompt to the LLM.
-        The system prompt is used to guide the LLM in refining the unit test code based on error messages.
-        The user prompt is used to provide the LLM with the necessary information to refine the unit test code.
-        The goal is to create code without errors and exceptions.
-        args:
-            function: the function under test
-            sut: the file where the function under test is located
-            test_cases: the unit test cases code
-            build_errors: the build errors
-            additional_information: any additional information about how to create the unit test cases
-            knowledge_base_content: the knowledge base content
-            test_project_file: the test project file (csproj file)
-            file_contents: the potentially relevant files
+    You are responsible for summarizing the action that was taken by the agent that is responsible for refining the unit test code based on error messages.
+    You will be given the old and new unit test code, the old and new test project file content to compare and see what was changed. There might be no changes in those files at all and the agent only installed nuget packages.
     """
+    return f"""
+    The agent has taken the following action: {action_taken}.
+    The old unit test code was:
+    ```csharp
+    {unit_tests_old}
+    ```
+    The new unit test code is:
+    ```csharp
+    {unit_tests_new}
+    ```
+    """
+
+@ell.tool()
+def rewrite_unit_test_file(
+    tests_file_path: str = Field(description="The path to the unit test file. The variable is called test_file_path. Do not include anything else but the path. Make sure the file path is in the right format: for example: C:\\Users\\user\\Documents\\tests.cs Note how the backslashes are escaped only once." ),
+    test_file_content: str = Field(description="The code of the unit tests. Make sure it is valid C# code without ```csharp tags."),
+):
+    tests_file_path = tests_file_path.replace('/', '\\')
+    try:
+        # Extract the code between the ```csharp tags
+        with open(tests_file_path, 'w') as file:
+            file.write(test_file_content)
+    except Exception as e:
+        print(f"Failed to create test file '{tests_file_path}': {str(e)}")
+
+@ell.complex(model="openai/gpt-4o-mini", temperature=0.0, tools=[rewrite_test_project_file, install_nuget_package, rewrite_unit_test_file], n=1, response_format=RefinedUnitTests)
+def refine_code_based_on_errors(sut: str, test_cases: str, test_project_file_path: str, function: str, build_errors: str, additional_information: str, knowledge_base_content: str, test_project_file: str, test_file_path: str, file_contents: list = None, tool_outputs: str = None):
     system_prompt = """
     You are an agent responsible for refining the unit test code based on error messages.
     You will be provided with the system under test (sut), the generated unit test cases,
     any error messages from the build and test execution, and additional information.
+    <important>
+    You will be called recursively, which means you have to be very careful not to repeat a mistake.
+    You will be given past actions that you took in your previous calls. Do not repeat those actions.
+    It could be that you are called the first time, than you dont have to worry about repeating a mistake.
+    </important>
     Your task is to analyze the error messages and refine the unit test code to resolve the issues.
     You MUST NOT create entirely new test cases but focus on fixing the existing ones.
     You MUST answer in markdown format.
     You MUST return the refined unit test code along with explanations for the changes made.
     You MUST show your thought process for refining the unit test cases.
-    The code must be between ```csharp tags. If you do not do this, you will be fired.
     You can use the rewrite_test_project_file tool to rewrite the test project file if there is need.
     You can use the install_nuget_package tool to install any nuget package if there is need.
-    You are also potentially given tool outputs from past tool calls. Those tool called might have errors or warnings that you need to fix. 
-    <important>If the tool errors indicate that the nuget package doesnt exist, dont try to install the same package twice. Either try a different variation of the name of the package or try a completely different approach</important>
+    You are given past actions that you took in your previous calls. Do not repeat those actions.
+    You are given the path to the test file. You can use the rewrite_unit_test_file tool to rewrite the test file if there is need.
     """
 
     user_prompt = """
@@ -433,22 +463,27 @@ def refine_code_based_on_errors(sut: str, test_cases: str, test_project_file_pat
         ```csharp
         {{test_project_file}}
         ```
-        # Tool Outputs:
+        # test_file_path:
+        ```
+        {{test_file_path}}
+        ```
+        # Your past actions that you took and should not repeat:
         ```
         {{tool_outputs}}
         ```
-
-        # Refined Unit Test Cases:
-        ```csharp
-        // Refined unit tests based on the error messages
-        // []
-        ```
-
-        # Explanation:
-        - **Error 1:** [Description of the first error and how it was resolved]
-        - **Error 2:** [Description of the second error and how it was resolved]
-        - ...
-    """.format(knowledge_base_content=knowledge_base_content,test_project_file_path=test_project_file_path.replace('\\', '/'), build_errors=build_errors, function=function, sut=sut, test_cases=test_cases, test_project_file=test_project_file, additional_information=additional_information, file_contents=file_contents, tool_outputs=tool_outputs)
+    """.format(
+        knowledge_base_content=knowledge_base_content,
+        test_file_path=test_file_path,
+        build_errors=build_errors,
+        function=function,
+        sut=sut,
+        test_cases=test_cases,
+        test_project_file=test_project_file,
+        additional_information=additional_information,
+        file_contents=file_contents,
+        tool_outputs=tool_outputs,
+        test_project_file_path=test_project_file_path
+    )
     if not build_errors.strip():
         return [
             ell.system(system_prompt),
@@ -517,7 +552,7 @@ def main():
     #     file_contents if args.files else None
     # )
     #
-    unit_tests = build_unit_tests(
+    unit_tests_first = build_unit_tests(
         function=args.function,
         sut=sut_content,
         test_cases=test_cases,
@@ -526,11 +561,12 @@ def main():
         knowledge_base_content=knowledge_base_content,
         file_contents=file_contents if args.files else None
         )
+    if "```csharp" in unit_tests_first:
+        create_test_file(unit_tests_first, args.test_file)
+        print("created test file in " + args.test_file)
     build_result = ""
     while("Build and Tests Executed Successfully" not in build_result):
-        if "```csharp" in unit_tests:
-            create_test_file(unit_tests, args.test_file)
-            print("created test file in " + args.test_file)
+
         # Execute the build and tests
         build_result = execute_build_and_tests(os.path.dirname(args.csproj), args.test_file)
 
@@ -539,10 +575,12 @@ def main():
         else:
             print("Tests failed. Build errors:\n" + build_result)
         # Generate unit tests
-        tool_outputs = tool_outputs if 'tool_outputs' in locals() else ""
+        past_actions = past_actions if 'past_actions' in locals() else []
+        unit_tests_old = unit_tests.parsed.new_unit_test_code
         unit_tests = refine_code_based_on_errors(
             sut=sut_content,
-            test_cases=unit_tests,
+            # use unit_tests_first on the first iteration and then use unit_tests.
+            test_cases=unit_tests_first if len(past_actions) == 0 else unit_tests.new_unit_test_code,
             build_errors=build_result,
             additional_information=args.additional_information,
             knowledge_base_content=knowledge_base_content,
@@ -550,11 +588,13 @@ def main():
             file_contents=file_contents if args.files else None,
             function=args.function,
             test_project_file_path=rf'{args.csproj}',
-            tool_outputs=tool_outputs
+            tool_outputs=past_actions,
+            test_file_path=args.test_file
         )
-        # call all tool functions in unit_tests
-        # build a concentated string of the outputs of the tool calls
-        tool_outputs = unit_tests.call_tools_and_collect_as_message()
-        print(tool_outputs)
+        unit_tests=unit_tests.parsed
+        past_actions.append(unit_tests.action_taken)
+        for tool_call in unit_tests.tool_calls:
+            tool_call()
+        print(past_actions)
 if __name__ == "__main__":
     main()
