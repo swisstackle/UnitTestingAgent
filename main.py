@@ -159,7 +159,6 @@ def unit_test_case_criticism(sut: str, function: str, knowledge_base_content: st
 class ActionSummary(BaseModel):
     action: str = Field(description="The action that was taken. Be detailed. Don't only summarize what was done, but also how and why it was done. You're summary can only be 200 characters long. Example: 'Changed the name space of the BankService from Tests.BankService to Engine.BankService'")
 
-
 @ell.simple(model="openai/gpt-4o-mini")
 def build_unit_tests(
     function: str,
