@@ -332,29 +332,15 @@ def rewrite_unit_test_file(
     except Exception as e:
         print(f"Failed to create test file '{tests_file_path}': {str(e)}")
 
-@ell.complex(model="openai/gpt-4o-mini", temperature=0.0, tools=[rewrite_test_project_file, install_nuget_package, rewrite_unit_test_file])
+@ell.complex(model="openai/gpt-4o", temperature=0.0, tools=[rewrite_test_project_file, install_nuget_package, rewrite_unit_test_file])
 def refine_code_based_on_errors(sut: str, test_cases: str, test_project_file_path: str, function: str, build_errors: str, additional_information: str, knowledge_base_content: str, test_project_file: str, test_file_path: str, file_contents: list = None, tool_outputs: str = None):
     system_prompt = """
     You are an agent responsible for refining the unit test code based on error messages.
     You will be provided with the system under test (sut), the generated unit test cases,
-    any error messages from the build and test execution, and additional information.
+    any error messages from the build and test execution, and additional information and more.
     <important>
-    You will be called recursively, which means you have to be very careful not to repeat a mistake.
-    You will be given past actions that you took in your previous calls. Do not repeat those actions.
-    It could be that you are called the first time, than you dont have to worry about repeating a mistake.
+    The most important thing is that you follow the program logic of the thinking tab and the reflection tab. If you do not do this, you will be fired.
     </important>
-    Your task is to analyze the error messages and refine the unit test code to resolve the issues.
-    You MUST NOT create entirely new test cases but focus on fixing the existing ones.
-    You MUST answer in markdown format.
-    You MUST return the refined unit test code along with explanations for the changes made.
-    You MUST show your thought process for refining the unit test cases.
-    You can use the rewrite_test_project_file tool to rewrite the test project file if there is need.
-    You can use the install_nuget_package tool to install any nuget package if there is need.
-    You are given past actions that you took in your previous calls. Do not repeat those actions.
-    You are given the path to the test file. You can use the rewrite_unit_test_file tool to rewrite the test file if there is need.
-    <most important>
-    The most important thing is that you follow the program logic of the thinking tab and the reflection tab.
-    </most important>
     """
 
     user_prompt = """
@@ -363,6 +349,31 @@ def refine_code_based_on_errors(sut: str, test_cases: str, test_project_file_pat
             Your unit test cases are syntactically correct and ready for execution. No refinement needed at this stage.
         """
     user_prompt_with_errors = f"""
+
+        Follow the following steps:
+        1. Follow the steps in the thinking tab.
+        2. Follow the steps in the reflection tab.
+
+        <thinking>
+            changes = []
+            if(Any nuget packages have to be installed):
+                use the install_nuget_package tool.
+                changes.append("install_nuget_package [PACKAGE_NAME]")
+            if(Any test project file changes have to be made):
+                use the rewrite_test_project_file tool.
+                changes.append("rewrite_test_project_file [PATH_TO_TEST_PROJECT_FILE] [CONTENT_OF_TEST_PROJECT_FILE]")
+            if(Any unit test code changes have to be made):
+                use the rewrite_unit_test_file tool.
+                changes.append("rewrite_unit_test_file [PATH_TO_TEST_FILE] [CONTENT_OF_TEST_FILE]")
+
+            if(past_actions contains an item from changes):
+                redo the thinking step without including the change that is included in past_actions.
+        </thinking>
+        <reflection>
+            Did you follow the program logic of the thinking tab rigerously without exceptions? If not, you MUST go back to the thinking tab and redo.
+            Especially, have you checked if your checked the past actions for items that are also in the changes list? If not, you MUST go back to the thinking tab and redo.
+        </reflection>
+
         # Function Under Test:
         ```csharp
         {{function}}
@@ -409,25 +420,6 @@ def refine_code_based_on_errors(sut: str, test_cases: str, test_project_file_pat
         ```
         {{tool_outputs}}
         ```
-        Follow the program logic of the thinking tab and the reflection tab.
-        <thinking>
-            changes = []
-            if(Any nuget packages have to be installed):
-                use the install_nuget_package tool.
-                changes.append("install_nuget_package")
-            if(Any test project file changes have to be made):
-                use the rewrite_test_project_file tool.
-                changes.append("rewrite_test_project_file")
-            if(Any unit test code changes have to be made):
-                use the rewrite_unit_test_file tool.
-                changes.append("rewrite_unit_test_file")
-
-            if(past_actions is not None and changes contains an item from past_actions):
-                redo the thinking step without including the change that is included in past_actions.
-        </thinking>
-        <reflection>
-            Did I follow the program logic of the thinking tab rigerously without exceptions? If not, I have to go back to the thinking tab and redo.
-        </reflection>
     """.format(
         knowledge_base_content=knowledge_base_content,
         test_file_path=test_file_path,
