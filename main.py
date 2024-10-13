@@ -8,7 +8,6 @@ from pydantic import BaseModel, Field
 from RefinedUnitTests import RefinedUnitTests
 from pydantic import ValidationError
 import time
-from install_libs import install_nuget_package
 from tools import *
 
 ell_key = os.getenv("MODALBOX_KEY")
