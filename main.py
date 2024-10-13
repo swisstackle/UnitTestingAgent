@@ -4,7 +4,6 @@ from openai import Client
 import os
 import argparse
 import subprocess
-import re
 from pydantic import BaseModel, Field
 from typing import List
 from RefinedUnitTests import RefinedUnitTests
