@@ -160,7 +160,6 @@ class ActionSummary(BaseModel):
     action: str = Field(description="The action that was taken. Be detailed. Don't only summarize what was done, but also how and why it was done. You're summary can only be 200 characters long. Example: 'Changed the name space of the BankService from Tests.BankService to Engine.BankService'")
 
 
-
 @ell.simple(model="openai/gpt-4o-mini")
 def build_unit_tests(
     function: str,
@@ -234,7 +233,6 @@ def create_test_file(test_cases: str, test_project_file: str):
     except Exception as e:
         print(f"Failed to create test file '{test_project_file}': {str(e)}")
 
-
 def execute_build_and_tests(test_project_directory: str, test_file_path:str):
     try:
         # Navigate to the test project directory and execute build
@@ -294,7 +292,6 @@ def summarize_action(action_taken: str, unit_tests_old: str, unit_tests_new: str
     {unit_tests_new}
     ```
     """
-
 
 @ell.complex(model="openai/gpt-4o", temperature=0.0, tools=[rewrite_test_project_file, install_nuget_package_tool, rewrite_unit_test_file])
 def refine_code_based_on_errors(sut: str, test_cases: str, test_project_file_path: str, function: str, build_errors: str, additional_information: str, knowledge_base_content: str, test_project_file: str, test_file_path: str, file_contents: list = None, tool_outputs: str = None):
@@ -407,8 +404,6 @@ def refine_code_based_on_errors(sut: str, test_cases: str, test_project_file_pat
         ell.user(user_prompt_with_errors)
     ]
 
-
-
 @ell.complex(model="openai/gpt-4o-mini", temperature=0.0, response_format=RefinedUnitTests)
 def parse_refined_unit_tests(output: str):
     """
@@ -417,7 +412,6 @@ def parse_refined_unit_tests(output: str):
     return f"""
     {output}
     """
-
 
 def main():
     parser = argparse.ArgumentParser(description="Generate and execute unit tests.")
