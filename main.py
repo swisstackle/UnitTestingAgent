@@ -5,7 +5,6 @@ import os
 import argparse
 import subprocess
 from pydantic import BaseModel, Field
-from typing import List
 from RefinedUnitTests import RefinedUnitTests
 from pydantic import ValidationError
 import time
