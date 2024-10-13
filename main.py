@@ -5,7 +5,7 @@ import os
 import argparse
 import subprocess
 from pydantic import BaseModel, Field
-from RefinedUnitTests import RefinedUnitTests
+from refined_unit_tests import refined_unit_tests
 from pydantic import ValidationError
 import time
 from tools import *
@@ -400,7 +400,7 @@ def refine_code_based_on_errors(sut: str, test_cases: str, test_project_file_pat
         ell.user(user_prompt_with_errors)
     ]
 
-@ell.complex(model="openai/gpt-4o-mini", temperature=0.0, response_format=RefinedUnitTests)
+@ell.complex(model="openai/gpt-4o-mini", temperature=0.0, response_format=refined_unit_tests)
 def parse_refined_unit_tests(output: str):
     """
     You are responsivle for parsing the output of the refine_code_based_on_errors agent into RefinedUnitTests format.
