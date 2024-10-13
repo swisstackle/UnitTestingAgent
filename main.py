@@ -7,6 +7,9 @@ import subprocess
 import re
 from pydantic import BaseModel, Field
 from typing import List
+from RefinedUnitTests import RefinedUnitTests
+from pydantic import ValidationError
+import time
 
 ell_key = os.getenv("MODALBOX_KEY")
 openai_client = Client(
@@ -15,68 +18,6 @@ openai_client = Client(
 )
 ell.init(default_client=openai_client, store='./logdir', autocommit=True, verbose=True)
 
-@ell.simple(model="openai/gpt-4o-mini", temperature=0.0)
-def ask_follow_up_questions(sut: str, function: str, knowledge_base_content: str, file_contents: list = None):
-    """
-        You are an agent responsible for verifying the availability of all necessary files for the task.
-        In the user prompt, you will be given the function under test, the file where it is located and a list of potentiallyrelevant files.
-        Your task is to verify whether all the necessary dependencies of the function under test are available in the relevanbt files given.
-        For example, if the function under test uses a class that is defined in another file, then that file is necessary for the test.
-        Check for:
-        - Other classes that are used in the function under test
-        - Other functions that are used in the function under test
-        - Other files that are used in the function under test
-        - Other libraries that are used in the function under test
-        - Other resources that are used in the function under test
-        - And anything else that is necessary for the function under test to work.
-        You MUST answer in markdown format.
-        You MUST return an unordered list of the necessary files.
-        If you need no files, just return "Thank you for the information".
-        The format will be as follows (this is just an example):
-        [THOUGHT PROCESS FROM THE USER PROMPT]
-        Dependencies I need from you:
-        - BankService
-        - PayService
-        - DistilService
-
-        The dependencies are not file names, but the class names, enum names, etc. that are needed for the function under test to work.
-        You MUST share your thought process with the user as outlined in the user prompt. If you don't share your thought process, you will be fired.
-        """
-    return """
-        Follow these steps:
-        # 1. Read the function under test name:
-        ```csharp
-        {function}
-        ```
-        # 2. Read the file where the function under test is located:
-        ```csharp
-        {sut_content}
-        ```
-        # 3. Read the knowledge base:
-        ```
-        {knowledge_base_content}
-        ```
-        # 4. Read the file contents of other potentially relevant files:
-        ```csharp
-        {file_contents}
-        ```
-        # 5. Find all the dependencies of {function}
-        using 
-        ```csharp
-        {sut_content}
-        ```
-        # 6. Scan the main file again and the potentially relevent filesto and check which dependencies it does not define:
-        Main File:
-        ```csharp
-        {sut_content}
-        ```
-        Potentially Relevant Files:
-        ```csharp
-        {file_contents}
-        ```
-        # 7. Repeat steps 5 - 6 atleast 5 times to ensure you have a comprehensive list of dependencies. If you dont do this and lay out the thought process, you will be fired.
-        # 8. Return the list of dependencies that are not defined in either the main file or the potentially relevant files.
-    """.format(knowledge_base_content=knowledge_base_content, function=function, sut_content=sut, file_contents=file_contents)
 @ell.simple(model="openai/gpt-4o-mini", temperature=0.0)
 def unit_test_case_generation(sut: str, function: str, knowledge_base_content: str, additional_information: str, test_project_file: str, file_contents: list = None):
     """
@@ -216,12 +157,7 @@ def unit_test_case_criticism(sut: str, function: str, knowledge_base_content: st
 class ActionSummary(BaseModel):
     action: str = Field(description="The action that was taken. Be detailed. Don't only summarize what was done, but also how and why it was done. You're summary can only be 200 characters long. Example: 'Changed the name space of the BankService from Tests.BankService to Engine.BankService'")
 
-class RefinedUnitTests(BaseModel):
-    new_unit_test_code: str = Field(description="The new unit test code. Make sure it is valid C# code without ```csharp tags.")
-    new_test_project_file_content: str = Field(description="The new content of the test project file (csproj). The variable is called test_project_file. Do not include anything else but the content.")
-    thought_process: str = Field(description="The thought process that was used to refine the unit test code or take other actions such as installing nuget packages.")
-    tool_calls: List[str] = Field(description="The tool calls that were used to refine the unit test code or take other actions such as installing nuget packages. Include the details of the tool call.")
-    action_taken: str = Field(description="The action that was taken. Be detailed. Don't only summarize what was done, but also how and why it was done. You're summary can only be 200 characters long. Example: 'Changed the name space of the BankService from Tests.BankService to Engine.BankService'")
+
 
 @ell.simple(model="openai/gpt-4o-mini")
 def build_unit_tests(
@@ -396,7 +332,7 @@ def rewrite_unit_test_file(
     except Exception as e:
         print(f"Failed to create test file '{tests_file_path}': {str(e)}")
 
-@ell.complex(model="openai/gpt-4o-mini", temperature=0.0, tools=[rewrite_test_project_file, install_nuget_package, rewrite_unit_test_file], n=1, response_format=RefinedUnitTests)
+@ell.complex(model="openai/gpt-4o-mini", temperature=0.0, tools=[rewrite_test_project_file, install_nuget_package, rewrite_unit_test_file])
 def refine_code_based_on_errors(sut: str, test_cases: str, test_project_file_path: str, function: str, build_errors: str, additional_information: str, knowledge_base_content: str, test_project_file: str, test_file_path: str, file_contents: list = None, tool_outputs: str = None):
     system_prompt = """
     You are an agent responsible for refining the unit test code based on error messages.
@@ -416,6 +352,9 @@ def refine_code_based_on_errors(sut: str, test_cases: str, test_project_file_pat
     You can use the install_nuget_package tool to install any nuget package if there is need.
     You are given past actions that you took in your previous calls. Do not repeat those actions.
     You are given the path to the test file. You can use the rewrite_unit_test_file tool to rewrite the test file if there is need.
+    <most important>
+    The most important thing is that you follow the program logic of the thinking tab and the reflection tab.
+    </most important>
     """
 
     user_prompt = """
@@ -424,7 +363,6 @@ def refine_code_based_on_errors(sut: str, test_cases: str, test_project_file_pat
             Your unit test cases are syntactically correct and ready for execution. No refinement needed at this stage.
         """
     user_prompt_with_errors = f"""
-        Analyze the following error messages and refine the unit test cases accordingly:
         # Function Under Test:
         ```csharp
         {{function}}
@@ -471,6 +409,25 @@ def refine_code_based_on_errors(sut: str, test_cases: str, test_project_file_pat
         ```
         {{tool_outputs}}
         ```
+        Follow the program logic of the thinking tab and the reflection tab.
+        <thinking>
+            changes = []
+            if(Any nuget packages have to be installed):
+                use the install_nuget_package tool.
+                changes.append("install_nuget_package")
+            if(Any test project file changes have to be made):
+                use the rewrite_test_project_file tool.
+                changes.append("rewrite_test_project_file")
+            if(Any unit test code changes have to be made):
+                use the rewrite_unit_test_file tool.
+                changes.append("rewrite_unit_test_file")
+
+            if(past_actions is not None and changes contains an item from past_actions):
+                redo the thinking step without including the change that is included in past_actions.
+        </thinking>
+        <reflection>
+            Did I follow the program logic of the thinking tab rigerously without exceptions? If not, I have to go back to the thinking tab and redo.
+        </reflection>
     """.format(
         knowledge_base_content=knowledge_base_content,
         test_file_path=test_file_path,
@@ -493,6 +450,18 @@ def refine_code_based_on_errors(sut: str, test_cases: str, test_project_file_pat
         ell.system(system_prompt),
         ell.user(user_prompt_with_errors)
     ]
+
+
+
+@ell.complex(model="openai/gpt-4o-mini", temperature=0.0, response_format=RefinedUnitTests)
+def parse_refined_unit_tests(output: str):
+    """
+    You are responsivle for parsing the output of the refine_code_based_on_errors agent into RefinedUnitTests format.
+    """
+    return f"""
+    {output}
+    """
+
 
 def main():
     parser = argparse.ArgumentParser(description="Generate and execute unit tests.")
@@ -531,27 +500,7 @@ def main():
         test_project_file,
         file_contents if args.files else None
     )
-    # Step 2: Criticize the Generated Test Cases
-    # criticism = unit_test_case_criticism(
-    #     sut_content,
-    #     args.function,
-    #     knowledge_base_content,
-    #     test_cases,
-    #     args.additional_information,
-    #     test_project_file,
-    #     file_contents if args.files else None
-    # )
-    # test_cases = unit_test_case_refiner(
-    #     sut_content,
-    #     args.function,
-    #     knowledge_base_content,
-    #     criticism,
-    #     test_cases,
-    #     args.additional_information,
-    #     test_project_file,
-    #     file_contents if args.files else None
-    # )
-    #
+
     unit_tests_first = build_unit_tests(
         function=args.function,
         sut=sut_content,
@@ -576,23 +525,39 @@ def main():
             print("Tests failed. Build errors:\n" + build_result)
         # Generate unit tests
         past_actions = past_actions if 'past_actions' in locals() else []
-        unit_tests_old = unit_tests.parsed.new_unit_test_code
-        unit_tests = refine_code_based_on_errors(
-            sut=sut_content,
-            # use unit_tests_first on the first iteration and then use unit_tests.
-            test_cases=unit_tests_first if len(past_actions) == 0 else unit_tests.new_unit_test_code,
-            build_errors=build_result,
-            additional_information=args.additional_information,
-            knowledge_base_content=knowledge_base_content,
-            test_project_file=test_project_file,
-            file_contents=file_contents if args.files else None,
-            function=args.function,
-            test_project_file_path=rf'{args.csproj}',
-            tool_outputs=past_actions,
-            test_file_path=args.test_file
-        )
-        unit_tests=unit_tests.parsed
-        past_actions.append(unit_tests.action_taken)
+        max_retries = 3
+        retry_delay = 2  # seconds
+
+        for attempt in range(max_retries):
+            try:
+                unit_tests = refine_code_based_on_errors(
+                    sut=sut_content,
+                    test_cases=unit_tests_first if len(past_actions) == 0 else parsed.new_unit_test_code,
+                    build_errors=build_result,
+                    additional_information=args.additional_information,
+                    knowledge_base_content=knowledge_base_content,
+                    test_project_file=test_project_file,
+                    file_contents=file_contents if args.files else None,
+                    function=args.function,
+                    test_project_file_path=rf'{args.csproj}',
+                    tool_outputs=past_actions,
+                    test_file_path=args.test_file
+                )
+                # If successful, break out of the retry loop
+                break
+            except ValidationError as e:
+                print(f"Attempt {attempt + 1} failed due to validation error: {str(e)}")
+                if attempt < max_retries - 1:
+                    print(f"Retrying in {retry_delay} seconds...")
+                    time.sleep(retry_delay)
+                else:
+                    print("Max retries reached. Unable to refine code.")
+                    raise  # Re-raise the last exception if all retries fail
+
+        # Continue with the rest of your code here
+        parsed = parse_refined_unit_tests(unit_tests)
+        parsed = parsed.parsed
+        past_actions.append(parsed.action_taken)
         for tool_call in unit_tests.tool_calls:
             tool_call()
         print(past_actions)
