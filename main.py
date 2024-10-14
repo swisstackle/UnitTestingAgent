@@ -164,6 +164,7 @@ def build_unit_tests(
     test_project_file: str,
     additional_information: str,
     knowledge_base_content: str,
+    unit_testing_engine: str,
     file_contents: list = None,
 ):
     """
@@ -181,7 +182,7 @@ def build_unit_tests(
 
     user_prompt = f"""
         Follow these steps to build the unit tests for the function `{{function}}`:
-
+        Use {unit_testing_engine} to write the unit test cases.
         # 1. Integrate the unit test cases into the test project using the following system under test where the function lays:
         ```csharp
         {{sut}}
@@ -206,7 +207,7 @@ def build_unit_tests(
         ```
         {{file_contents}}
         ```
-    """.format(knowledge_base_content=knowledge_base_content, function=function, sut=sut, test_cases=test_cases, test_project_file=test_project_file, additional_information=additional_information, file_contents=file_contents)
+    """.format(knowledge_base_content=knowledge_base_content, unit_testing_engine=unit_testing_engine, function=function, sut=sut, test_cases=test_cases, test_project_file=test_project_file, additional_information=additional_information, file_contents=file_contents)
 
     return [
         ell.system(system_prompt),
@@ -229,7 +230,7 @@ def create_test_file(test_cases: str, test_project_file: str):
     except Exception as e:
         print(f"Failed to create test file '{test_project_file}': {str(e)}")
 
-def execute_build_and_tests(test_project_directory: str, test_file_path:str):
+def execute_build_and_tests(test_project_directory: str, test_namespace_and_classname:str):
     try:
         # Navigate to the test project directory and execute build
         build_process = subprocess.run(
@@ -244,7 +245,7 @@ def execute_build_and_tests(test_project_directory: str, test_file_path:str):
 
         # Execute the tests only if build was successful
         test_process = subprocess.run(
-            ["dotnet", "test", test_file_path],
+            [f"dotnet test --filter \"FullyQualifiedName={test_namespace_and_classname}\" --no-restore --no-build"],
             cwd=test_project_directory,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -259,7 +260,7 @@ def execute_build_and_tests(test_project_directory: str, test_file_path:str):
             ```
             ```bash
             {test_output}
-            ```
+            ```n
             **Build and Tests Executed Successfully.**
         """
     except subprocess.CalledProcessError as e:
@@ -289,12 +290,14 @@ def summarize_action(action_taken: str, unit_tests_old: str, unit_tests_new: str
     ```
     """
 
-@ell.complex(model="openai/gpt-4o", temperature=0.0, tools=[rewrite_test_project_file, install_nuget_package_tool, rewrite_unit_test_file])
-def refine_code_based_on_errors(sut: str, test_cases: str, test_project_file_path: str, function: str, build_errors: str, additional_information: str, knowledge_base_content: str, test_project_file: str, test_file_path: str, file_contents: list = None, tool_outputs: str = None):
+@ell.complex(model="openai/gpt-4o", temperature=0.0, tools=[rewrite_unit_test_file, rewrite_test_project_file])
+def refine_code_based_on_errors(sut: str, test_cases: str, test_project_file_path: str, function: str, build_errors: str, additional_information: str, knowledge_base_content: str, test_project_file: str, test_file_path: str, unit_testing_engine: str, file_contents: list = None, tool_outputs: str = None):
     system_prompt = """
     You are an agent responsible for refining the unit test code based on error messages.
     You will be provided with the system under test (sut), the generated unit test cases,
     any error messages from the build and test execution, and additional information and more.
+    You are not allowed to remove any test scenarios.
+    You are not allowed to remove any references in the test project file.
     <important>
     The most important thing is that you follow the program logic of the thinking tab and the reflection tab. If you do not do this, you will be fired.
     </important>
@@ -313,16 +316,14 @@ def refine_code_based_on_errors(sut: str, test_cases: str, test_project_file_pat
 
         <thinking>
             changes = []
-            if(Any nuget packages have to be installed):
-                use the install_nuget_package tool.
-                changes.append("install_nuget_package [PACKAGE_NAME]")
-            if(Any test project file changes have to be made):
-                use the rewrite_test_project_file tool.
-                changes.append("rewrite_test_project_file [PATH_TO_TEST_PROJECT_FILE] [CONTENT_OF_TEST_PROJECT_FILE]")
             if(Any unit test code changes have to be made):
+                write the unit test code using {unit_testing_engine}.
                 use the rewrite_unit_test_file tool.
                 changes.append("rewrite_unit_test_file [PATH_TO_TEST_FILE] [CONTENT_OF_TEST_FILE]")
-
+            if(any test scenarios have been removed by yourself):
+                redo the thinking step and re-introduce the removed test scenarios.
+            if(any references in the test project file have been removed by yourself):
+                redo the thinking step and re-introduce the removed references.
             if(past_actions contains an item from changes):
                 redo the thinking step without including the change that is included in past_actions.
         </thinking>
@@ -388,7 +389,8 @@ def refine_code_based_on_errors(sut: str, test_cases: str, test_project_file_pat
         additional_information=additional_information,
         file_contents=file_contents,
         tool_outputs=tool_outputs,
-        test_project_file_path=test_project_file_path
+        test_project_file_path=test_project_file_path,
+        unit_testing_engine=unit_testing_engine
     )
     if not build_errors.strip():
         return [
@@ -419,7 +421,11 @@ def main():
     parser.add_argument('--model', type=str, required=False, help='The model to use for the prompt')
     parser.add_argument('--csproj', type=str, required=True, help='Path to the csproj file of the test project')
     parser.add_argument('--test_file', type=str, required=True, help='Path where the test file will be created')
+    parser.add_argument('--unittestingengine', type=str, required=True, help='The unit testing engine to use', choices=['xunit', 'NUnit'])
     args = parser.parse_args()
+
+    testprojectdirectory = os.path.dirname(args.csproj)
+
 
     # Initialize the optimizer
         # parse the arguments and log them for debugging
@@ -436,7 +442,8 @@ def main():
     with open(args.csproj, 'r') as file:
         test_project_file = file.read()
 
-
+    # Step 1: Generate Unit Test Cases
+    install_nuget_package(args.unittestingengine, testprojectdirectory)
     # Step 1: Generate Unit Test Cases
     test_cases = unit_test_case_generation(
         sut_content,
@@ -454,16 +461,42 @@ def main():
         test_project_file=test_project_file,
         additional_information=args.additional_information,
         knowledge_base_content=knowledge_base_content,
-        file_contents=file_contents if args.files else None
+        file_contents=file_contents if args.files else None,
+        unit_testing_engine=args.unittestingengine
         )
     if "```csharp" in unit_tests_first:
         create_test_file(unit_tests_first, args.test_file)
+        import ast
+        import re
+
+        # Remove the ```csharp tags from the unit_tests_first string
+        unit_tests_first_code = re.sub(r"```csharp", "", unit_tests_first, flags=re.MULTILINE)
+
+        # Parse the code into an abstract syntax tree
+        # remove the ```csharp tags from the code first and create a seperate variable for that.
+        unit_tests_first_code_without_tags = re.sub(r"```csharp", "", unit_tests_first, flags=re.MULTILINE)
+        tree = ast.parse(unit_tests_first_code_without_tags)
+        # Extract the namespace and class name from the tree
+        namespace_name = None
+        class_name = None
+        for node in tree.body:
+            if isinstance(node, ast.ClassDef):
+                class_name = node.name
+            elif isinstance(node, ast.ImportFrom):
+                namespace_name = node.module
+
+        # Combine the namespace and class name into a single string
+        namespace_and_classname = f"{namespace_name}.{class_name}" if namespace_name and class_name else None
+    
+        
         print("created test file in " + args.test_file)
+    else:
+        raise Exception("Unit test code was not generated correctly. Please try again.")
     build_result = ""
     while("Build and Tests Executed Successfully" not in build_result):
 
         # Execute the build and tests
-        build_result = execute_build_and_tests(os.path.dirname(args.csproj), args.test_file)
+        build_result = execute_build_and_tests(testprojectdirectory, args.test_file, namespace_and_classname)
 
         if "Build and Tests Executed Successfully" in build_result:
             print("Success! All tests passed.")
@@ -487,7 +520,8 @@ def main():
                     function=args.function,
                     test_project_file_path=rf'{args.csproj}',
                     tool_outputs=past_actions,
-                    test_file_path=args.test_file
+                    test_file_path=args.test_file,
+                    unit_testing_engine=args.unittestingengine
                 )
                 # If successful, break out of the retry loop
                 break
