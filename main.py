@@ -307,6 +307,7 @@ def refine_code_based_on_errors(sut: str, test_cases: str, test_project_file_pat
     For example if you wanted to call the method "classname.foo" that resides in the namespace "thenamespace", you have to call it like this: "thenamespace.classname.foo".
     <important>
     The most important thing is that you follow the program logic of the thinking tab and the reflection tab. If you do not do this, you will be fired.
+    Make sure to ALWAYS post the entire csharp code in csharp tags. Do not show partial code.
     </important>
     """
 
