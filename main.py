@@ -9,6 +9,7 @@ from refined_unit_tests import refined_unit_tests
 from pydantic import ValidationError
 import time
 from tools import *
+import re
 
 ell_key = os.getenv("MODALBOX_KEY")
 openai_client = Client(
@@ -172,6 +173,8 @@ def build_unit_tests(
     The system prompt is used to guide the LLM in building the unit test cases.
     The user prompt is used to provide the LLM with the necessary information to build the unit test cases.
     The goal is to create code without errors and exceptions.
+    To avoid namespace conflicts, you HAVE TO use namespaces directly instead of using the using statement.
+    For example if you wanted to call the method "classname.foo" that resides in the namespace "thenamespace", you have to call it like this: "thenamespace.classname.foo".
     """
     system_prompt = """
     You are an expert in C# and .NET. You are an expert in creating unit test cases for .NET applications.
@@ -183,6 +186,8 @@ def build_unit_tests(
     user_prompt = f"""
         Follow these steps to build the unit tests for the function `{{function}}`:
         Use {unit_testing_engine} to write the unit test cases.
+    To avoid namespace conflicts, you HAVE TO use namespaces directly instead of using the using statement.
+    For example if you wanted to call the method "classname.foo" that resides in the namespace "thenamespace", you have to call it like this: "thenamespace.classname.foo".
         # 1. Integrate the unit test cases into the test project using the following system under test where the function lays:
         ```csharp
         {{sut}}
@@ -298,6 +303,8 @@ def refine_code_based_on_errors(sut: str, test_cases: str, test_project_file_pat
     any error messages from the build and test execution, and additional information and more.
     You are not allowed to remove any test scenarios.
     You are not allowed to remove any references in the test project file.
+    To avoid namespace conflicts, you HAVE TO use namespaces directly instead of using the using statement.
+    For example if you wanted to call the method "classname.foo" that resides in the namespace "thenamespace", you have to call it like this: "thenamespace.classname.foo".
     <important>
     The most important thing is that you follow the program logic of the thinking tab and the reflection tab. If you do not do this, you will be fired.
     </important>
@@ -309,7 +316,7 @@ def refine_code_based_on_errors(sut: str, test_cases: str, test_project_file_pat
             Your unit test cases are syntactically correct and ready for execution. No refinement needed at this stage.
         """
     user_prompt_with_errors = f"""
-
+        This is your {len(tool_outputs)} attempt to refine the unit test code. If this gets more than 5 attempts, you will be fired.
         Follow the following steps:
         1. Follow the steps in the thinking tab.
         2. Follow the steps in the reflection tab.
@@ -320,7 +327,10 @@ def refine_code_based_on_errors(sut: str, test_cases: str, test_project_file_pat
                 write the unit test code using {unit_testing_engine}.
                 use the rewrite_unit_test_file tool.
                 changes.append("rewrite_unit_test_file [PATH_TO_TEST_FILE] [CONTENT_OF_TEST_FILE]")
+            if(you have not used namespaces directly instead of using the using statement):
+                redo the thinking step and use namespaces directly.
             if(any test scenarios have been removed by yourself):
+                This is cheating and you will be fired if you do this.
                 redo the thinking step and re-introduce the removed test scenarios.
             if(any references in the test project file have been removed by yourself):
                 redo the thinking step and re-introduce the removed references.
@@ -466,40 +476,26 @@ def main():
         )
     if "```csharp" in unit_tests_first:
         create_test_file(unit_tests_first, args.test_file)
-        import ast
-        import re
 
-        # Remove the ```csharp tags from the unit_tests_first string
-        unit_tests_first_code = re.sub(r"```csharp", "", unit_tests_first, flags=re.MULTILINE)
+        # Extract the namespace and class name using regex
+        namespace_match = re.search(r'namespace\s+(\w+(?:\.\w+)*)', unit_tests_first)
+        class_match = re.search(r'public\s+class\s+(\w+)', unit_tests_first)
 
-        # Parse the code into an abstract syntax tree
-        # remove the ```csharp tags from the code first and create a seperate variable for that.
-        unit_tests_first_code_without_tags = re.sub(r"```csharp", "", unit_tests_first, flags=re.MULTILINE)
-        tree = ast.parse(unit_tests_first_code_without_tags)
-        # Extract the namespace and class name from the tree
-        namespace_name = None
-        class_name = None
-        for node in tree.body:
-            if isinstance(node, ast.ClassDef):
-                class_name = node.name
-            elif isinstance(node, ast.ImportFrom):
-                namespace_name = node.module
-
-        # Combine the namespace and class name into a single string
-        namespace_and_classname = f"{namespace_name}.{class_name}" if namespace_name and class_name else None
-    
-        
-        print("created test file in " + args.test_file)
+        namespace_name = namespace_match.group(1) if namespace_match else None
+        class_name = class_match.group(1) if class_match else None
+        # concentanate namespace and class name
+        namespace_and_classname = f"{namespace_name}.{class_name}"
     else:
         raise Exception("Unit test code was not generated correctly. Please try again.")
     build_result = ""
     while("Build and Tests Executed Successfully" not in build_result):
 
         # Execute the build and tests
-        build_result = execute_build_and_tests(testprojectdirectory, args.test_file, namespace_and_classname)
+        build_result = execute_build_and_tests(testprojectdirectory, namespace_and_classname)
 
         if "Build and Tests Executed Successfully" in build_result:
             print("Success! All tests passed.")
+            break
         else:
             print("Tests failed. Build errors:\n" + build_result)
         # Generate unit tests
