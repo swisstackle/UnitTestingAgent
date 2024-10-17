@@ -10,6 +10,7 @@ from pydantic import ValidationError
 import time
 from tools import *
 import re
+from refine_unit_test_code import refine_code_based_on_errors, parse_function_calls
 
 ell_key = os.getenv("MODALBOX_KEY")
 openai_client = Client(
@@ -295,123 +296,6 @@ def summarize_action(action_taken: str, unit_tests_old: str, unit_tests_new: str
     ```
     """
 
-@ell.complex(model="openai/gpt-4o", temperature=0.0, tools=[rewrite_unit_test_file, rewrite_test_project_file])
-def refine_code_based_on_errors(sut: str, test_cases: str, test_project_file_path: str, function: str, build_errors: str, additional_information: str, knowledge_base_content: str, test_project_file: str, test_file_path: str, unit_testing_engine: str, file_contents: list = None, tool_outputs: str = None):
-    system_prompt = """
-    You are an agent responsible for refining the unit test code based on error messages.
-    You will be provided with the system under test (sut), the generated unit test cases,
-    any error messages from the build and test execution, and additional information and more.
-    You are not allowed to remove any test scenarios.
-    You are not allowed to remove any references in the test project file.
-    To avoid namespace conflicts, you HAVE TO use namespaces directly instead of using the using statement.
-    For example if you wanted to call the method "classname.foo" that resides in the namespace "thenamespace", you have to call it like this: "thenamespace.classname.foo".
-    <important>
-    The most important thing is that you follow the program logic of the thinking tab and the reflection tab. If you do not do this, you will be fired.
-    Make sure to ALWAYS post the entire csharp code in csharp tags. Do not show partial code.
-    </important>
-    """
-
-    user_prompt = """
-            **No errors detected during the build and testing process.**
-
-            Your unit test cases are syntactically correct and ready for execution. No refinement needed at this stage.
-        """
-    user_prompt_with_errors = f"""
-        This is your {len(tool_outputs)} attempt to refine the unit test code. If this gets more than 5 attempts, you will be fired.
-        Follow the following steps:
-        1. Follow the steps in the thinking tab.
-        2. Follow the steps in the reflection tab.
-
-        <thinking>
-            changes = []
-            if(Any unit test code changes have to be made):
-                write the unit test code using {unit_testing_engine}.
-                use the rewrite_unit_test_file tool.
-                changes.append("rewrite_unit_test_file [PATH_TO_TEST_FILE] [CONTENT_OF_TEST_FILE]")
-            if(you have not used namespaces directly instead of using the using statement):
-                redo the thinking step and use namespaces directly.
-            if(any test scenarios have been removed by yourself):
-                This is cheating and you will be fired if you do this.
-                redo the thinking step and re-introduce the removed test scenarios.
-            if(any references in the test project file have been removed by yourself):
-                redo the thinking step and re-introduce the removed references.
-            if(past_actions contains an item from changes):
-                redo the thinking step without including the change that is included in past_actions.
-        </thinking>
-        <reflection>
-            Did you follow the program logic of the thinking tab rigerously without exceptions? If not, you MUST go back to the thinking tab and redo.
-            Especially, have you checked if your checked the past actions for items that are also in the changes list? If not, you MUST go back to the thinking tab and redo.
-        </reflection>
-
-        # Function Under Test:
-        ```csharp
-        {{function}}
-        ```
-        # Error Messages:
-        ```bash
-        {{build_errors}}
-        ```
-
-        # System Under Test (SUT):
-        ```csharp
-        {{sut}}
-        ```
-
-        # Original Unit Test Cases:
-        ```csharp
-        {{test_cases}}
-        ```
-        # Potentially Relevant Files:
-        ```
-        {{file_contents}}
-        ```
-        # Additional Information:
-        ```
-        {{additional_information}}
-        ```
-        # Make sure to follow the knowledge base relligiously:
-        ```
-        {{knowledge_base_content}}
-        ```
-        # test_project_file_path:
-        ```
-        {{test_project_file_path}}
-        ```
-        # test_project_file:
-        ```csharp
-        {{test_project_file}}
-        ```
-        # test_file_path:
-        ```
-        {{test_file_path}}
-        ```
-        # Your past actions that you took and should not repeat:
-        ```
-        {{tool_outputs}}
-        ```
-    """.format(
-        knowledge_base_content=knowledge_base_content,
-        test_file_path=test_file_path,
-        build_errors=build_errors,
-        function=function,
-        sut=sut,
-        test_cases=test_cases,
-        test_project_file=test_project_file,
-        additional_information=additional_information,
-        file_contents=file_contents,
-        tool_outputs=tool_outputs,
-        test_project_file_path=test_project_file_path,
-        unit_testing_engine=unit_testing_engine
-    )
-    if not build_errors.strip():
-        return [
-            ell.system(system_prompt),
-            ell.user(user_prompt)
-        ]
-    return [
-        ell.system(system_prompt),
-        ell.user(user_prompt_with_errors)
-    ]
 
 @ell.complex(model="openai/gpt-4o-mini", temperature=0.0, response_format=refined_unit_tests)
 def parse_refined_unit_tests(output: str):
@@ -530,12 +414,12 @@ def main():
                 else:
                     print("Max retries reached. Unable to refine code.")
                     raise  # Re-raise the last exception if all retries fail
-
+        toolsparsed = parse_function_calls(unit_tests, args.test_file)
         # Continue with the rest of your code here
         parsed = parse_refined_unit_tests(unit_tests)
         parsed = parsed.parsed
-        past_actions.append(parsed.action_taken)
-        for tool_call in unit_tests.tool_calls:
+        past_actions.append(parsed.action_taken + "!!!")
+        for tool_call in toolsparsed.tool_calls:
             tool_call()
         print(past_actions)
 if __name__ == "__main__":
