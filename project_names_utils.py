@@ -1,6 +1,8 @@
 import re
 import subprocess
 import os
+import xml.etree.ElementTree as ET
+from typing import List, Dict, Union
 
 def test_project_reference_checker(
     project_file_path: str,
@@ -99,3 +101,53 @@ def get_project_references(cs_file_path, root_directory):
     project_dict = scan_csproj_files(root_directory)
     matched_projects = analyze_cs_file(cs_file_path, project_dict)
     return resolve_project_references(matched_projects, project_dict)
+
+# This function identifies which test .csproj files are not referenced in a primary .csproj file.
+# It takes the primary project's path and a list of test project paths, then returns the test project paths
+# that are not currently referenced in the primary project. The returned paths are relative to the primary project's directory.
+def find_unreferenced_csproj_files(primary_csproj_path: str, test_csproj_paths: List[str]) -> List[str]:
+    """
+    Identifies which test .csproj files are not referenced in the primary .csproj file.
+
+    Args:
+        primary_csproj_path (str): Absolute path to the primary .csproj file.
+        test_csproj_paths (List[str]): List of absolute paths to test project .csproj files.
+
+    Returns:
+        List[str]: List of test .csproj file paths (relative to the primary project directory) that are not referenced.
+    """
+    # Extract the directory of the primary .csproj file
+    primary_dir = os.path.dirname(os.path.abspath(primary_csproj_path))
+
+    # Parse the primary .csproj file to extract existing ProjectReferences
+    tree = ET.parse(primary_csproj_path)
+    root = tree.getroot()
+    namespace = {'msbuild': 'http://schemas.microsoft.com/developer/msbuild/2003'}
+
+    # Handle XML namespaces if present
+    if root.tag.startswith('{'):
+        uri, tag = root.tag[1:].split('}')
+        ns = {'ns': uri}
+    else:
+        ns = {}
+
+    existing_references = set()
+    for proj_ref in root.findall('.//ProjectReference', ns):
+        include_path = proj_ref.get('Include')
+        if include_path:
+            # Normalize the path
+            normalized_path = os.path.normpath(os.path.join(primary_dir, include_path))
+            existing_references.add(os.path.abspath(normalized_path))
+
+    # Convert test_csproj_paths to absolute paths
+    test_absolute_paths = {os.path.abspath(path) for path in test_csproj_paths}
+
+    # Determine which test projects are not referenced
+    unreferenced_absolute = test_absolute_paths - existing_references
+
+    # Convert unreferenced absolute paths to relative paths
+    unreferenced_relative = [
+        os.path.relpath(path, primary_dir) for path in unreferenced_absolute
+    ]
+
+    return unreferenced_relative
