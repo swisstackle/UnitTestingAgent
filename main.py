@@ -189,7 +189,6 @@ def build_unit_tests(
     user_prompt = f"""
         Follow these steps to build the unit tests for the function `{{function}}`:
         Use {unit_testing_engine} to write the unit test cases.
-    To avoid namespace conflicts, you HAVE TO use namespaces directly instead of using the using statement.
     For example if you wanted to call the method "classname.foo" that resides in the namespace "thenamespace", you have to call it like this: "thenamespace.classname.foo".
         # 1. Integrate the unit test cases into the test project using the following system under test where the function lays:
         ```csharp
