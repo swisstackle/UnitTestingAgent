@@ -41,6 +41,12 @@ YOU ARE TO RESPOND IN MARKDOWN</important>
 
         if(not entire file was provided)
 	        redo providing the entire final unit test code
+        
+        if(there is no error but not all tests passed):
+	        change the test cases so that all tests pass. This is testing after development philosophy.
+
+        if(did you not provide the entire file?!!!):
+	        redo providing the entire final unit test code
 
         !Format the output code with 4-space indentation, and use new lines to separate method declarations, block statements, and logical sections of code.!
 
