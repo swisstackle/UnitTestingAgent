@@ -11,6 +11,8 @@ import time
 from tools import *
 import re
 from refine_unit_test_code import refine_code_based_on_errors, parse_function_calls
+from project_names_utils import get_project_references, find_unreferenced_csproj_files
+from project_file_agents import add_project_references
 
 ell_key = os.getenv("MODALBOX_KEY")
 openai_client = Client(
@@ -158,7 +160,7 @@ def unit_test_case_criticism(sut: str, function: str, knowledge_base_content: st
 class ActionSummary(BaseModel):
     action: str = Field(description="The action that was taken. Be detailed. Don't only summarize what was done, but also how and why it was done. You're summary can only be 200 characters long. Example: 'Changed the name space of the BankService from Tests.BankService to Engine.BankService'")
 
-@ell.simple(model="openai/gpt-4o-mini")
+@ell.simple(model="openai/gpt-4o-mini", seed=42)
 def build_unit_tests(
     function: str,
     sut: str,
@@ -250,8 +252,9 @@ def execute_build_and_tests(test_project_directory: str, test_namespace_and_clas
         build_output = build_process.stdout
 
         # Execute the tests only if build was successful
+        command = f"dotnet test --filter \"FullyQualifiedName={test_namespace_and_classname}\" --no-restore --no-build"
         test_process = subprocess.run(
-            [f"dotnet test --filter \"FullyQualifiedName={test_namespace_and_classname}\" --no-restore --no-build"],
+            command,
             cwd=test_project_directory,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -317,6 +320,7 @@ def main():
     parser.add_argument('--csproj', type=str, required=True, help='Path to the csproj file of the test project')
     parser.add_argument('--test_file', type=str, required=True, help='Path where the test file will be created')
     parser.add_argument('--unittestingengine', type=str, required=True, help='The unit testing engine to use', choices=['xunit', 'NUnit'])
+    parser.add_argument('--root_directory', type=str, required=True, help='The root directory of the solution')
     args = parser.parse_args()
 
     testprojectdirectory = os.path.dirname(args.csproj)
@@ -370,6 +374,10 @@ def main():
         class_name = class_match.group(1) if class_match else None
         # concentanate namespace and class name
         namespace_and_classname = f"{namespace_name}.{class_name}"
+        project_references = get_project_references(args.test_file, args.root_directory)
+        unreferenced_projects = find_unreferenced_csproj_files(args.csproj, project_references)
+        if len(unreferenced_projects) > 0:
+            add_project_references(args.csproj, unreferenced_projects)
     else:
         raise Exception("Unit test code was not generated correctly. Please try again.")
     build_result = ""

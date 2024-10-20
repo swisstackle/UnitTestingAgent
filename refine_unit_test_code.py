@@ -3,7 +3,7 @@ import ell
 # add importds for rewrite_unit_test_file and rewrite_test_project_file
 from tools import rewrite_unit_test_file
 
-@ell.simple(model="mattshumer/reflection-70b", temperature=0.0)
+@ell.simple(model="mattshumer/reflection-70b", temperature=0.0, seed=42)
 def refine_code_based_on_errors(sut: str, test_cases: str, test_project_file_path: str, function: str, build_errors: str, additional_information: str, knowledge_base_content: str, test_project_file: str, test_file_path: str, unit_testing_engine: str, file_contents: list = None, tool_outputs: str = None):
 
     user_prompt = """
