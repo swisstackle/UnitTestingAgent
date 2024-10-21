@@ -80,14 +80,6 @@ YOU ARE TO RESPOND IN MARKDOWN</important>
         ```
         {{knowledge_base_content}}
         ```
-        # test_project_file_path:
-        ```
-        {{test_project_file_path}}
-        ```
-        # test_project_file:
-        ```csharp
-        {{test_project_file}}
-        ```
         # test_file_path:
         ```
         {{test_file_path}}
@@ -103,11 +95,9 @@ YOU ARE TO RESPOND IN MARKDOWN</important>
         function=function,
         sut=sut,
         test_cases=test_cases,
-        test_project_file=test_project_file,
         additional_information=additional_information,
         file_contents=file_contents,
         tool_outputs=tool_outputs,
-        test_project_file_path=test_project_file_path,
         unit_testing_engine=unit_testing_engine
     )
     if not build_errors.strip():

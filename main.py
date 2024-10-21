@@ -13,6 +13,7 @@ import re
 from refine_unit_test_code import refine_code_based_on_errors, parse_function_calls
 from project_names_utils import get_project_references, find_unreferenced_csproj_files
 from project_file_agents import add_project_references
+from create_files import create_test_file, create_DTO_file, create_factory_file
 
 ell_key = os.getenv("MODALBOX_KEY")
 openai_client = Client(
@@ -183,19 +184,19 @@ def build_unit_tests(
     You are an expert in C# and .NET. You are an expert in creating unit test cases for .NET applications.
     You are given the file where the function under test is located, the name of the function under test, the unit test cases, important additional information, the knowledge base. Create the unit test cases into the test project.
     The code must be between ```csharp tags. Dont put the individual functions in ```csharp tags, but put the whole code in ```csharp tags. If you do not do this, you will be fired.
+    You will probably also have to create DTO's and Factory classes. If so, also enclose them in ```csharp tags that are seperate from each other (each class should be in its own ```csharp tags).
     You MUST show your thought process for building the unit test cases.
     """
 
     user_prompt = f"""
         Follow these steps to build the unit tests for the function `{{function}}`:
         Use {unit_testing_engine} to write the unit test cases.
-    For example if you wanted to call the method "classname.foo" that resides in the namespace "thenamespace", you have to call it like this: "thenamespace.classname.foo".
         # 1. Integrate the unit test cases into the test project using the following system under test where the function lays:
         ```csharp
         {{sut}}
         ```
 
-        # 2. Ensure that the unit test cases are properly placed within the test project directory.
+        # 2.  Unit test Cases you must implement:
         ```csharp
         {{test_cases}}
         ```
@@ -220,22 +221,6 @@ def build_unit_tests(
         ell.system(system_prompt),
         ell.user(user_prompt)
     ]
-
-def create_test_file(test_cases: str, test_project_file: str):
-    """
-    This method createsa test file and inserts the code in test_cases into it.
-    If the file already exists, it will be overwritten.
-    We will use try catch to handle the file creation.
-    The code in test_cases is between ```csharo tags (markdown formatting).
-    This function first extracts the code between the ```csharp tags and then writes it to the test project file.
-    """
-    try:
-        # Extract the code between the ```csharp tags
-        test_cases_code = str(test_cases).split("```csharp")[1].split("```")[0]
-        with open(test_project_file, 'w') as file:
-            file.write(test_cases_code)
-    except Exception as e:
-        print(f"Failed to create test file '{test_project_file}': {str(e)}")
 
 def execute_build_and_tests(test_project_directory: str, test_namespace_and_classname:str):
     try:
@@ -297,7 +282,6 @@ def summarize_action(action_taken: str, unit_tests_old: str, unit_tests_new: str
     {unit_tests_new}
     ```
     """
-
 
 @ell.complex(model="openai/gpt-4o-mini", temperature=0.0, response_format=refined_unit_tests)
 def parse_refined_unit_tests(output: str):
@@ -363,20 +347,34 @@ def main():
         unit_testing_engine=args.unittestingengine
         )
     if "```csharp" in unit_tests_first:
-        create_test_file(unit_tests_first, args.test_file)
+        # Split the content into separate code blocks
+        code_blocks = re.split(r'```csharp|```', unit_tests_first)[1::2]
+        filepath = args.test_file
+        for i, block in enumerate(code_blocks):
+            if "DTO" in block:
+                filepath = create_DTO_file(block, f"{os.path.splitext(args.test_file)[0]}_{i}")
+            elif "Factory" in block:
+                filepath = create_factory_file(block, f"{os.path.splitext(args.test_file)[0]}_{i}")
+            else:
+                # This is the main test file, only create it once
+                if i == 0:
+                    create_test_file(block, filepath)
+            project_references = get_project_references(filepath, args.root_directory)
+            unreferenced_projects = find_unreferenced_csproj_files(args.csproj, project_references)
+            if len(unreferenced_projects) > 0:
+                add_project_references(args.csproj, unreferenced_projects)
 
-        # Extract the namespace and class name using regex
-        namespace_match = re.search(r'namespace\s+(\w+(?:\.\w+)*)', unit_tests_first)
-        class_match = re.search(r'public\s+class\s+(\w+)', unit_tests_first)
+        # Extract namespace and class name from the main test file
+        with open(args.test_file, 'r') as file:
+            test_file_content = file.read()
+        
+        namespace_match = re.search(r'namespace\s+(\w+(?:\.\w+)*)', test_file_content)
+        class_match = re.search(r'public\s+class\s+(\w+)', test_file_content)
 
         namespace_name = namespace_match.group(1) if namespace_match else None
         class_name = class_match.group(1) if class_match else None
-        # concentanate namespace and class name
         namespace_and_classname = f"{namespace_name}.{class_name}"
-        project_references = get_project_references(args.test_file, args.root_directory)
-        unreferenced_projects = find_unreferenced_csproj_files(args.csproj, project_references)
-        if len(unreferenced_projects) > 0:
-            add_project_references(args.csproj, unreferenced_projects)
+
     else:
         raise Exception("Unit test code was not generated correctly. Please try again.")
     build_result = ""
