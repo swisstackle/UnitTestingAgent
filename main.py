@@ -108,7 +108,7 @@ def unit_test_case_criticism(sut: str, function: str, knowledge_base_content: st
 class ActionSummary(BaseModel):
     action: str = Field(description="The action that was taken. Be detailed. Don't only summarize what was done, but also how and why it was done. You're summary can only be 200 characters long. Example: 'Changed the name space of the BankService from Tests.BankService to Engine.BankService'")
 
-@ell.simple(model="openai/o1-mini", seed=42)
+@ell.simple(model="openai/o1-mini", seed=42, temperature=0.0)
 def build_unit_tests(
     function: str,
     sut: str,
@@ -151,11 +151,12 @@ def build_unit_tests(
         ```
         {{additional_information}}
         ```
-
+        <IMPORTANT>
         # Make sure to follow the knowledge base relligiously:
         ```
         {{knowledge_base_content}}
         ```
+        </IMPORTANT>
 
         # Here are other potentially relevant files:
         ```
@@ -269,9 +270,11 @@ def main():
     with open(args.csproj, 'r') as file:
         test_project_file = file.read()
 
-    # Step 1: Generate Unit Test Cases
+    # Installing the specified unit testing engine NuGet package in the test project directory
     install_nuget_package(args.unittestingengine, testprojectdirectory)
-    # Step 1: Generate Unit Test Cases
+
+    # Generating the unit test cases for the function under test
+    # This does not spit out any code yet, just the test cases.
     test_cases = unit_test_case_generation(
         sut_content,
         args.function,
@@ -281,6 +284,17 @@ def main():
         file_contents if args.files else None
     )
 
+    # This section is responsible for building the initial unit tests based on the provided parameters.
+    # The build_unit_tests function is called with the following parameters:
+    # - function: The name of the function to be tested.
+    # - sut: The content of the file where the system under test is located.
+    # - test_cases: The test cases generated for the function.
+    # - test_project_file: The content of the test project file.
+    # - additional_information: Any additional information provided about the prompt.
+    # - knowledge_base_content: The content of the knowledge base.
+    # - file_contents: The contents of any additional files provided, if any.
+    # - unit_testing_engine: The unit testing engine to use for the tests.
+    # The function returns the initial unit tests code, which is stored in the unit_tests_first variable.
     unit_tests_first = build_unit_tests(
         function=args.function,
         sut=sut_content,
@@ -292,14 +306,21 @@ def main():
         unit_testing_engine=args.unittestingengine
         )
     if "```csharp" in unit_tests_first:
-        code_blocks = re.split(r'```csharp|```', unit_tests_first)[1::2]  # Gets all code blocks between markers
-        filepath = args.test_file
-        create_test_file(code_blocks[0], filepath) # only use the first code block
+        # Here, we are parsing the unit tests generated to identify any tool calls that need to be executed.
+        # The only possible tool call that can be parsed at this point is to create the unit test file.
+        # We use the parse_function_calls function to identify this tool call within the response of the previous agent.
+        # Why are we not directly outputting the tool calls with build_unit_tests? The reason is because o1-mini and reflection-70b models do not support tool calls.
+        function_calls = parse_function_calls(unit_tests_first, args.test_file)
+        
+        # Once we have identified the tool call, we iterate through each of them and execute them.
+        # This is necessary to ensure that the unit test file is created before proceeding with the testing process.
+        for tool_call in function_calls.tool_calls:
+            tool_call()
 
-        # Extract namespace and class name from the main test file
         with open(args.test_file, 'r') as file:
             test_file_content = file.read()
         
+        # Extracting namespace and class names from the test file content to identify the test class and its namespace
         namespace_match = re.search(r'namespace\s+(\w+(?:\.\w+)*)', test_file_content)
         class_matches = re.finditer(r'(?:public|private|internal)?\s*class\s+(\w+)', test_file_content)
         
@@ -311,10 +332,22 @@ def main():
                 test_class_name = class_name
                 break
         
+        # The following steps are necessary to ensure that all required project references are correctly added to the test project.
+        # This includes identifying the namespace and class name of the test class, finding project references in the test file,
+        # identifying any unreferenced .csproj files, and adding those references to the primary .csproj file.
         namespace_name = namespace_match.group(1) if namespace_match else None
         namespace_and_classname = f"{namespace_name}.{test_class_name}" if namespace_name and test_class_name else test_class_name
+        project_references = get_project_references(args.test_file, args.root_directory)
+        unreferenced_csproj_files = find_unreferenced_csproj_files(args.csproj, project_references)
+        function_calls = add_project_references(args.csproj, unreferenced_csproj_files)
+        for tool_call in function_calls.tool_calls:
+            tool_call()
     else:
         raise Exception("Unit test code was not generated correctly. Please try again.")
+
+    # This section is responsible for executing the build and tests.
+    # It repeatedly attempts to build and run the tests until successful.
+    # If the build fails, it prints the error messages and retries.
     build_result = ""
     while("Build and Tests Executed Successfully" not in build_result):
 
@@ -355,14 +388,17 @@ def main():
                 else:
                     print("Max retries reached. Unable to refine code.")
                     raise  # Re-raise the last exception if all retries fail
+
+        # Getting the tool calls from the refined unit tests
         toolsparsed = parse_function_calls(unit_tests, args.test_file)
-        # Continue with the rest of your code here
+        # Here, we are parsing the refined unit tests to extract the action taken by the agent.
         parsed = parse_refined_unit_tests(unit_tests)
         parsed = parsed.parsed
         past_actions.append(parsed.action_taken + "!!!")
+        # Executing the tool calls
         for tool_call in toolsparsed.tool_calls:
             tool_call()
-        print(past_actions)
+
 if __name__ == "__main__":
     main()
 

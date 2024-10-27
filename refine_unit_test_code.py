@@ -84,11 +84,12 @@ YOU ARE TO RESPOND IN MARKDOWN</important>
         ```
         {{knowledge_base_content}}
         ```
-
+        <IMPORTANT>
         # Your past actions that you took and should not repeat:
         ```
         {{tool_outputs}}
         ```
+        </IMPORTANT>
     """.format(
         knowledge_base_content=knowledge_base_content,
         test_file_path=test_file_path,
