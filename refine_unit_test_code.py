@@ -3,15 +3,21 @@ import ell
 # add importds for rewrite_unit_test_file and rewrite_test_project_file
 from tools import rewrite_unit_test_file
 
-@ell.simple(model="mattshumer/reflection-70b", temperature=0.0, seed=42)
+@ell.simple(model="openai/o1-mini", temperature=0.0, seed=42)
 def refine_code_based_on_errors(sut: str, test_cases: str, function: str, build_errors: str, additional_information: str, knowledge_base_content: str, test_file_path: str, unit_testing_engine: str, file_contents: list = None, tool_outputs: str = None):
+    # I want to format all entries in file_contants in markdown code blocks
+    # It should be a formatted string in markdown
+    formatted_file_contents = ""
+    for file_path, file_content in file_contents.items():
+        formatted_file_contents += f"# {file_path}\n```\n{file_content}\n```\n"
 
     user_prompt = """
 Your only responsibility is to find out whether the source of the errors of the build of unit test code are because of the unit testing code, DTOs or Factory code or a combination of all of them.
+You are working in collaboration with another AI agent which means you can not give partial code. The other AI agent has no memory of previous steps.
 You will be provided with the system under test (sut), the unit testing code, the DTOs and Factory code, any error messages from the build and test execution, and the content of the test project file (csproj).
 You are only allowed to change the unit testing code and !NOT! the test project file
 <important>The most important thing is that you follow the program logic of the steps. If you do not do this, you will be fired.
-YOU ARE TO RESPOND IN MARKDOWN</important>
+YOU ARE TO RESPOND IN MARKDOWN.</important>
 
             **No errors detected during the build and testing process.**
 
@@ -74,7 +80,7 @@ YOU ARE TO RESPOND IN MARKDOWN</important>
         ```
         # Potentially Relevant Files:
         ```
-        {{file_contents}}
+        {{formatted_file_contents}}
         ```
         # Additional Information:
         ```
@@ -98,7 +104,7 @@ YOU ARE TO RESPOND IN MARKDOWN</important>
         sut=sut,
         test_cases=test_cases,
         additional_information=additional_information,
-        file_contents=file_contents,
+        formatted_file_contents=formatted_file_contents,
         tool_outputs=tool_outputs,
         unit_testing_engine=unit_testing_engine
     )

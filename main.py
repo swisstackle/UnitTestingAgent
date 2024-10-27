@@ -117,7 +117,7 @@ def build_unit_tests(
     additional_information: str,
     knowledge_base_content: str,
     unit_testing_engine: str,
-    file_contents: list = None,
+    file_contents: dict = None,
 ):
     """
     This method sends the system prompt and the user prompt to the LLM.
@@ -127,7 +127,11 @@ def build_unit_tests(
     To avoid namespace conflicts, you HAVE TO use namespaces directly instead of using the using statement.
     For example if you wanted to call the method "classname.foo" that resides in the namespace "thenamespace", you have to call it like this: "thenamespace.classname.foo".
     """
-
+    # I want to format all entries in file_contants in markdown code blocks
+    # It should be a formatted string in markdown
+    formatted_file_contents = ""
+    for file_path, file_content in file_contents.items():
+        formatted_file_contents += f"# {file_path}\n```\n{file_content}\n```\n"
     user_prompt = f"""
     You are an expert in C# and .NET. You are an expert in creating unit test cases for .NET applications.
     You are given the file where the function under test is located, the name of the function under test, the unit test cases, important additional information, the knowledge base. Create the unit test cases into the test project.
@@ -160,9 +164,9 @@ def build_unit_tests(
 
         # Here are other potentially relevant files:
         ```
-        {{file_contents}}
+        {{formatted_file_contents}}
         ```
-    """.format(knowledge_base_content=knowledge_base_content, unit_testing_engine=unit_testing_engine, function=function, sut=sut, test_cases=test_cases, test_project_file=test_project_file, additional_information=additional_information, file_contents=file_contents)
+    """.format(knowledge_base_content=knowledge_base_content, unit_testing_engine=unit_testing_engine, function=function, sut=sut, test_cases=test_cases, test_project_file=test_project_file, additional_information=additional_information, formatted_file_contents=formatted_file_contents)
 
     return [
         ell.user(user_prompt)
