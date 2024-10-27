@@ -14,15 +14,11 @@ from refine_unit_test_code import refine_code_based_on_errors, parse_function_ca
 from project_names_utils import get_project_references, find_unreferenced_csproj_files
 from project_file_agents import add_project_references
 from create_files import create_test_file, create_DTO_file, create_factory_file
+from openai_client import openai_client
 
-ell_key = os.getenv("MODALBOX_KEY")
-openai_client = Client(
-  api_key=ell_key,
-  base_url="https://api.model.box/v1",
-)
 ell.init(default_client=openai_client, store='./logdir', autocommit=True, verbose=True)
 
-@ell.simple(model="openai/gpt-4o-mini", temperature=0.0)
+@ell.simple(model="openai/gpt-4o-mini", temperature=0.0, seed=42)
 def unit_test_case_generation(sut: str, function: str, knowledge_base_content: str, additional_information: str, test_project_file: str, file_contents: list = None):
     """
     You are an agent responsible for generating unit test cases for the function under test.
@@ -62,55 +58,6 @@ def unit_test_case_generation(sut: str, function: str, knowledge_base_content: s
         {test_project_file}
         ```
     """.format(additional_information=additional_information, knowledge_base_content=knowledge_base_content, function=function, sut_content=sut, file_contents=file_contents, test_project_file=test_project_file)
-
-@ell.simple(model="openai/gpt-4o-mini", temperature=0.0)
-def unit_test_case_refiner(sut: str, function: str, knowledge_base_content: str, feedback: str, old_unit_test_cases: str, additional_information: str, test_project_file: str, file_contents: list = None):
-    """
-    You are an agent responsible for refining and adding unit test cases for the function under test based on feedback from your teacher.
-    You will be given the the feedback from your teacher,  the function under test, the file where it is located, a list of potentially relevant files and the knowledge base.
-    Your task is to generate a list of unit test cases for the function under test. You MUST NOT generate any code.
-    You MUST answer in markdown format.
-    You MUST return an unordered list of the unit test cases.
-    You MUST share your thought process with the user as outlined in the user prompt. If you don't share your thought process, you will be fired.
-    You MUST cover every possible path through the function under test. If you don't do this, you will be fired.
-    You MUST summarize the changes you made to the old unit test cases and explain why you made those changes and refer to the feedback from your teacher.
-    """
-
-    return """
-        Hello unit test case generation agent.
-        # Knowledge Base:
-        ```
-        {knowledge_base_content}
-        ```
-        # Function Under Test:
-        ```csharp
-        {function}
-        ```
-        # File where the function under test is located:
-        ```csharp
-        {sut_content}
-        ```
-        # Potentially Relevant Files:
-        ```
-        {file_contents}
-        ```
-        # Feedback from teacher:
-        ```
-        {feedback}
-        ```
-        # Old Unit Test Cases:
-        ```
-        {old_unit_test_cases}
-        ```
-        # Additional Information:
-        ```
-        {additional_information}
-        ```
-        # Test Project File:
-        ```
-        {test_project_file}
-        ```
-    """.format(additional_information=additional_information,feedback=feedback, old_unit_test_cases=old_unit_test_cases, knowledge_base_content=knowledge_base_content, function=function, sut_content=sut, file_contents=file_contents, test_project_file=test_project_file)
 
 @ell.simple(model="openai/gpt-4o-mini", temperature=0.0)
 def unit_test_case_criticism(sut: str, function: str, knowledge_base_content: str, unit_test_cases: str, additional_information: str, test_project_file: str, file_contents: list = None):
@@ -161,7 +108,7 @@ def unit_test_case_criticism(sut: str, function: str, knowledge_base_content: st
 class ActionSummary(BaseModel):
     action: str = Field(description="The action that was taken. Be detailed. Don't only summarize what was done, but also how and why it was done. You're summary can only be 200 characters long. Example: 'Changed the name space of the BankService from Tests.BankService to Engine.BankService'")
 
-@ell.simple(model="openai/gpt-4o-mini", seed=42)
+@ell.simple(model="openai/o1-mini", seed=42)
 def build_unit_tests(
     function: str,
     sut: str,
@@ -180,15 +127,14 @@ def build_unit_tests(
     To avoid namespace conflicts, you HAVE TO use namespaces directly instead of using the using statement.
     For example if you wanted to call the method "classname.foo" that resides in the namespace "thenamespace", you have to call it like this: "thenamespace.classname.foo".
     """
-    system_prompt = """
+
+    user_prompt = f"""
     You are an expert in C# and .NET. You are an expert in creating unit test cases for .NET applications.
     You are given the file where the function under test is located, the name of the function under test, the unit test cases, important additional information, the knowledge base. Create the unit test cases into the test project.
     The code must be between ```csharp tags. Dont put the individual functions in ```csharp tags, but put the whole code in ```csharp tags. If you do not do this, you will be fired.
-    You will probably also have to create DTO's and Factory classes. If so, also enclose them in ```csharp tags that are seperate from each other (each class should be in its own ```csharp tags).
+    You will probably also have to create DTO's and Factory classes. The unit testing code, the DTO's and the Factory classes must be in the same namespace and ```csharp tags.
     You MUST show your thought process for building the unit test cases.
-    """
 
-    user_prompt = f"""
         Follow these steps to build the unit tests for the function `{{function}}`:
         Use {unit_testing_engine} to write the unit test cases.
         # 1. Integrate the unit test cases into the test project using the following system under test where the function lays:
@@ -218,7 +164,6 @@ def build_unit_tests(
     """.format(knowledge_base_content=knowledge_base_content, unit_testing_engine=unit_testing_engine, function=function, sut=sut, test_cases=test_cases, test_project_file=test_project_file, additional_information=additional_information, file_contents=file_contents)
 
     return [
-        ell.system(system_prompt),
         ell.user(user_prompt)
     ]
 
@@ -265,7 +210,7 @@ def execute_build_and_tests(test_project_directory: str, test_namespace_and_clas
             **An error occurred during build or testing. Please review the above error messages.**
         """
 
-@ell.complex(model="openai/gpt-4o-mini", temperature=0.0, response_format=ActionSummary)
+@ell.complex(model="openai/gpt-4o-mini", temperature=0.0, response_format=ActionSummary, seed=42)
 def summarize_action(action_taken: str, unit_tests_old: str, unit_tests_new: str):
     """
     You are responsible for summarizing the action that was taken by the agent that is responsible for refining the unit test code based on error messages.
@@ -283,7 +228,7 @@ def summarize_action(action_taken: str, unit_tests_old: str, unit_tests_new: str
     ```
     """
 
-@ell.complex(model="openai/gpt-4o-mini", temperature=0.0, response_format=refined_unit_tests)
+@ell.complex(model="openai/gpt-4o-mini", temperature=0.0, response_format=refined_unit_tests, seed=42)
 def parse_refined_unit_tests(output: str):
     """
     You are responsivle for parsing the output of the refine_code_based_on_errors agent into RefinedUnitTests format.
@@ -314,11 +259,11 @@ def main():
     args = parser.parse_args()
     with open(args.knowledge, 'r') as file:
         knowledge_base_content = file.read()
-    file_contents = []
+    file_contents = {}
     if args.files:
         for file_path in args.files:
             with open(file_path, 'r') as file:
-                file_contents.append(file.read())
+                file_contents[file_path] = file.read()
     with open(args.sut, 'r') as file:
         sut_content = file.read()
     with open(args.csproj, 'r') as file:
@@ -347,34 +292,27 @@ def main():
         unit_testing_engine=args.unittestingengine
         )
     if "```csharp" in unit_tests_first:
-        # Split the content into separate code blocks
-        code_blocks = re.split(r'```csharp|```', unit_tests_first)[1::2]
+        code_blocks = re.split(r'```csharp|```', unit_tests_first)[1::2]  # Gets all code blocks between markers
         filepath = args.test_file
-        for i, block in enumerate(code_blocks):
-            if "DTO" in block:
-                filepath = create_DTO_file(block, f"{os.path.splitext(args.test_file)[0]}_{i}")
-            elif "Factory" in block:
-                filepath = create_factory_file(block, f"{os.path.splitext(args.test_file)[0]}_{i}")
-            else:
-                # This is the main test file, only create it once
-                if i == 0:
-                    create_test_file(block, filepath)
-            project_references = get_project_references(filepath, args.root_directory)
-            unreferenced_projects = find_unreferenced_csproj_files(args.csproj, project_references)
-            if len(unreferenced_projects) > 0:
-                add_project_references(args.csproj, unreferenced_projects)
+        create_test_file(code_blocks[0], filepath) # only use the first code block
 
         # Extract namespace and class name from the main test file
         with open(args.test_file, 'r') as file:
             test_file_content = file.read()
         
         namespace_match = re.search(r'namespace\s+(\w+(?:\.\w+)*)', test_file_content)
-        class_match = re.search(r'public\s+class\s+(\w+)', test_file_content)
-
+        class_matches = re.finditer(r'(?:public|private|internal)?\s*class\s+(\w+)', test_file_content)
+        
+        # Find the test class (not DTO or Factory)
+        test_class_name = None
+        for match in class_matches:
+            class_name = match.group(1)
+            if 'DTO' not in class_name and 'Factory' not in class_name:
+                test_class_name = class_name
+                break
+        
         namespace_name = namespace_match.group(1) if namespace_match else None
-        class_name = class_match.group(1) if class_match else None
-        namespace_and_classname = f"{namespace_name}.{class_name}"
-
+        namespace_and_classname = f"{namespace_name}.{test_class_name}" if namespace_name and test_class_name else test_class_name
     else:
         raise Exception("Unit test code was not generated correctly. Please try again.")
     build_result = ""
@@ -401,10 +339,8 @@ def main():
                     build_errors=build_result,
                     additional_information=args.additional_information,
                     knowledge_base_content=knowledge_base_content,
-                    test_project_file=test_project_file,
                     file_contents=file_contents if args.files else None,
                     function=args.function,
-                    test_project_file_path=rf'{args.csproj}',
                     tool_outputs=past_actions,
                     test_file_path=args.test_file,
                     unit_testing_engine=args.unittestingengine
@@ -429,3 +365,4 @@ def main():
         print(past_actions)
 if __name__ == "__main__":
     main()
+

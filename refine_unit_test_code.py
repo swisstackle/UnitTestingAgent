@@ -4,7 +4,7 @@ import ell
 from tools import rewrite_unit_test_file
 
 @ell.simple(model="mattshumer/reflection-70b", temperature=0.0, seed=42)
-def refine_code_based_on_errors(sut: str, test_cases: str, test_project_file_path: str, function: str, build_errors: str, additional_information: str, knowledge_base_content: str, test_project_file: str, test_file_path: str, unit_testing_engine: str, file_contents: list = None, tool_outputs: str = None):
+def refine_code_based_on_errors(sut: str, test_cases: str, function: str, build_errors: str, additional_information: str, knowledge_base_content: str, test_file_path: str, unit_testing_engine: str, file_contents: list = None, tool_outputs: str = None):
 
     user_prompt = """
 Your only responsibility is to find out whether the source of the errors of the build of unit test code are because of the unit testing code, DTOs or Factory code or a combination of all of them.
@@ -68,6 +68,10 @@ YOU ARE TO RESPOND IN MARKDOWN</important>
         ```csharp
         {{test_cases}}
         ```
+        # test_file_path:
+        ```
+        {{test_file_path}}
+        ```
         # Potentially Relevant Files:
         ```
         {{file_contents}}
@@ -80,10 +84,7 @@ YOU ARE TO RESPOND IN MARKDOWN</important>
         ```
         {{knowledge_base_content}}
         ```
-        # test_file_path:
-        ```
-        {{test_file_path}}
-        ```
+
         # Your past actions that you took and should not repeat:
         ```
         {{tool_outputs}}
@@ -117,6 +118,7 @@ def refine_factor_file(sut: str, test_cases: str, test_project_file_path: str, f
     return ""
 
 
+@ell.complex(model="openai/gpt-4o-mini", temperature=0.0, tools=[rewrite_unit_test_file])
 def parse_function_calls(reasoningoutput:str, unit_test_path:str):
     """
     Your only responsibility is to parse the reasoning output of the LLM and return the function calls that are needed.

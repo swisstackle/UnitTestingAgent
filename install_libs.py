@@ -4,7 +4,7 @@ import sys
 import subprocess
 
 def install_nuget_package(package_name, test_project_file_path):
-    subprocess.run(["nuget", "locals", "all", "-clear"])
+    #subprocess.run(["nuget", "locals", "all", "-clear"])
     test_project_file_directory = os.path.dirname(test_project_file_path)
     try:
         # check if the nuget package is already installed
