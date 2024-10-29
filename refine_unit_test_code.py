@@ -116,14 +116,6 @@ YOU ARE TO RESPOND IN MARKDOWN</important>
         ell.user(user_prompt_with_errors)
     ]
 
-@ell.simple(model="mattshumer/reflection-70b", temperature=0.0, seed=42)
-def refine_dto_file(sut: str, test_cases: str, test_project_file_path: str, function: str, build_errors: str, additional_information: str, knowledge_base_content: str, test_project_file: str, test_file_path: str, unit_testing_engine: str, file_contents: list = None, tool_outputs: str = None):
-    return ""
-
-@ell.simple(model="mattshumer/reflection-70b", temperature=0.0, seed=42)
-def refine_factor_file(sut: str, test_cases: str, test_project_file_path: str, function: str, build_errors: str, additional_information: str, knowledge_base_content: str, test_project_file: str, test_file_path: str, unit_testing_engine: str, file_contents: list = None, tool_outputs: str = None):
-    return ""
-
 
 @ell.complex(model="openai/gpt-4o-mini", temperature=0.0, tools=[rewrite_unit_test_file])
 def parse_function_calls(reasoningoutput:str, unit_test_path:str):
