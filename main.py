@@ -13,7 +13,7 @@ import re
 from refine_unit_test_code import refine_code_based_on_errors, parse_function_calls
 from project_names_utils import get_project_references, find_unreferenced_csproj_files
 from project_file_agents import add_project_references
-from openai_client import openai_client
+from llm_clients import openai_client
 from unit_test_case_generation import unit_test_case_generation
 from build_unit_tests import build_unit_tests
 from execute_build_and_tests import execute_build_and_tests

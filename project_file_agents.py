@@ -1,6 +1,6 @@
 import ell
 from tools import rewrite_test_project_file
-from openai_client import openai_client
+from llm_clients import openai_client
 
 @ell.complex(client=openai_client, model="gpt-4o-mini", temperature=0.0, tools=[rewrite_test_project_file])
 def add_project_references(test_project_file_path: str, project_paths_to_add_to_references: list[str]):

@@ -1,6 +1,7 @@
 import ell
+from llm_clients import anthropic_client
 
-@ell.simple(model="openai/o1-mini", seed=42, temperature=0.0)
+@ell.simple(model="anthropic/claude-3-5-sonnet-20241022", client=anthropic_client, seed=42, temperature=0.0, max_tokens=8192)
 def build_unit_tests(
     function: str,
     sut: str,
@@ -11,55 +12,75 @@ def build_unit_tests(
     unit_testing_engine: str,
     file_contents: dict = None,
 ):
-    """
-    This method sends the system prompt and the user prompt to the LLM.
-    The system prompt is used to guide the LLM in building the unit test cases.
-    The user prompt is used to provide the LLM with the necessary information to build the unit test cases.
-    The goal is to create code without errors and exceptions.
-    To avoid namespace conflicts, you HAVE TO use namespaces directly instead of using the using statement.
-    For example if you wanted to call the method "classname.foo" that resides in the namespace "thenamespace", you have to call it like this: "thenamespace.classname.foo".
-    """
-    # I want to format all entries in file_contants in markdown code blocks
-    # It should be a formatted string in markdown
     formatted_file_contents = ""
     for file_path, file_content in file_contents.items():
         formatted_file_contents += f"# {file_path}\n```\n{file_content}\n```\n"
     user_prompt = f"""
-    You are an expert in C# and .NET. You are an expert in creating unit test cases for .NET applications.
-    You are given the file where the function under test is located, the name of the function under test, the unit test cases, important additional information, the knowledge base. Create the unit test cases into the test project.
-    The code must be between ```csharp tags. Dont put the individual functions in ```csharp tags, but put the whole code in ```csharp tags. If you do not do this, you will be fired.
-    You will probably also have to create DTO's and Factory classes. The unit testing code, the DTO's and the Factory classes must be in the same namespace and ```csharp tags.
-    You MUST show your thought process for building the unit test cases.
+        You are an expert C# and .NET developer, specializing in creating unit tests for .NET applications. Your task is to create unit tests for a specific function based on the provided information and knowledge base. It is crucial that you strictly adhere to the provided knowledge base at all times.
+        Very IMPORTANT: In the code that you generate, for every line that you make, you have to write a comment where in the knowledgebase you found similar code that you used. If you have to write code that you didnt find in the knowledge base, just write "couldnt find" as a comment.
 
-        Follow these steps to build the unit tests for the function `{{function}}`:
-        Use {unit_testing_engine} to write the unit test cases.
-        # 1. Integrate the unit test cases into the test project using the following system under test where the function lays:
-        ```csharp
+        Here is the file containing the function under test:
+        <function_file>
         {{sut}}
-        ```
+        </function_file>
 
-        # 2.  Unit test Cases you must implement:
-        ```csharp
+        Here is the unit testing system you should use:
+        <unit_testing_system>
+        {{unit_testing_engine}}
+        </unit_testing_system>
+
+        The name of the function under test is:
+        <function_name>
+        {{function}}
+        </function_name>
+
+        Here are the provided unit test cases:
+        <unit_test_cases>
         {{test_cases}}
-        ```
+        </unit_test_cases>
 
-        # 3. Make sure to utilize the additional information provided to you:
-        ```
+        Additional important information:
+        <additional_info>
         {{additional_information}}
-        ```
-        <IMPORTANT>
-        # Make sure to follow the knowledge base relligiously:
-        ```
+        </additional_info>
+
+        Potentially Relevant Files:
+        <relevantfiles>
+        {{relevant_files}}
+        </relevantfiles>
+
+        The knowledge base you must adhere to is:
+        <knowledge_base>
         {{knowledge_base_content}}
-        ```
-        </IMPORTANT>
+        </knowledge_base>
 
-        # Here are other potentially relevant files:
-        ```
-        {{formatted_file_contents}}
-        ```
-    """.format(knowledge_base_content=knowledge_base_content, unit_testing_engine=unit_testing_engine, function=function, sut=sut, test_cases=test_cases, test_project_file=test_project_file, additional_information=additional_information, formatted_file_contents=formatted_file_contents)
+        Before creating the unit tests, please analyze the function and plan your approach. Wrap your analysis inside <analysis> tags to show your thought process. In your analysis, make sure to:
+        1. Break down the function under test and list all its dependencies.
+        2. Identify the input parameters and return type of the function.
+        3. Consider potential edge cases and error scenarios, listing at least three of each.
+        4. Plan the structure of your unit tests, including:
+            a. A list of test methods you'll create
+            b. Any setup or teardown steps needed
+            c. Any mocking or stubbing required for dependencies
+        5. Explicitly reference and adhere to the provided knowledge base, ensuring that all tests are in line with the information given there.
+        6. Create a step-by-step plan for implementing the unit tests.
 
+        After your analysis, create the unit tests using the specified unit testing system. Your output should include:
+        1. The complete unit testing code, including any necessary DTOs and Factory classes.
+        2. All code should be in the same namespace.
+        3. The entire code output should be wrapped in a single set of ```csharp tags.
+
+        Remember:
+        - Strictly adhere to the knowledge base at all times.
+        - Show your thought process in the <analysis> tags.
+        - Ensure all code is well-organized and properly structured.
+        - Include any necessary DTOs and Factory classes in your output.
+
+        Please begin your analysis now.
+        ```
+    """.format(knowledge_base_content=knowledge_base_content, unit_testing_engine=unit_testing_engine, function=function, sut=sut, test_cases=test_cases, additional_information=additional_information, relevant_files=formatted_file_contents)
+    with open("user_prompt.txt", "w") as f:
+        f.write(user_prompt)
     return [
         ell.user(user_prompt)
     ]

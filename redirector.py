@@ -2,7 +2,7 @@ import re
 import os
 from typing import List
 
-def extract_error_files(build_errors: str) -> List[str]:
+def extract_error_codes(build_errors: str) -> List[str]:
     """
     Extracts a list of unique file paths from the provided build errors.
     Filters out warnings and project-level errors.
@@ -43,7 +43,7 @@ D:\\AnotherProject\\File3.cs(5,7): error CS0103: The name 'undefined_variable' d
 /home/user/Project/File4.vb(8,3): error BC30201: Expression expected
 /var/www/AnotherProject/File5.fs(12,9): error FS0001: This expression was expected to have type 'int' but here has type 'string'
     """
-    result = extract_error_files(sample_errors)
+    result = extract_error_codes(sample_errors)
     print("Files with errors:")
     for file in result:
         print(file)
