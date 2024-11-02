@@ -12,90 +12,102 @@ def refine_code_based_on_errors(sut: str, test_cases: str, function: str, build_
         formatted_file_contents += f"# {file_path}\n```\n{file_content}\n```\n"
 
     user_prompt = """
-Your only responsibility is to find out whether the source of the errors of the build of unit test code are because of the unit testing code, DTOs or Factory code or a combination of all of them.
-You are working in collaboration with another AI agent which means you can not give partial code. The other AI agent has no memory of previous steps.
-You will be provided with the system under test (sut), the unit testing code, the DTOs and Factory code, any error messages from the build and test execution, and the content of the test project file (csproj).
-You are only allowed to change the unit testing code and !NOT! the test project file
-<important>The most important thing is that you follow the program logic of the steps. If you do not do this, you will be fired.
-YOU ARE TO RESPOND IN MARKDOWN.</important>
+You are an expert C# developer specializing in unit testing. Your task is to analyze and potentially modify unit test code to resolve build errors or test failures. Please review the following information carefully:
 
-            **No errors detected during the build and testing process.**
+<relevant_files>
+{{formatted_file_contents}}
+</relevant_files>
 
-            Your unit test cases are syntactically correct and ready for execution. No refinement needed at this stage.
-        """
-    user_prompt_with_errors = f"""
-Your only responsibility is to find out whether the source of the errors of the build of unit test code are because of the unit testing code or not.
-You will be provided with the system under test (sut), the unit testing code, any error messages from the build and test execution, and the content of the test project file (csproj).
-You are only allowed to change the unit testing code and !NOT! the test project file
-<important>The most important thing is that you follow the program logic of the steps. If you do not do this, you will be fired.
-YOU ARE TO RESPOND IN MARKDOWN</important>
+<unit_test_code>
+{{test_cases}}
+</unit_test_code>
 
-        Tools you can use: rewrite_project_file
+<build_errors>
+{{build_errors}}
+</build_errors>
 
-        Follow the following steps:
+<function_under_test>
+{{function}}
+</function_under_test>
 
-        if(any changes in the unit testing code are neessary):
-	        changes.append("rewrote unit testing code")
+<system_under_test>
+{{sut}}
+</system_under_test>
 
-        if(using statements are correct && some sort of object can't be found)
-	        This means there likely is a namespace conflict. Use the fully qualified name for the object / function
+<test_file_path>
+{{test_file_path}}
+</test_file_path>
 
-        if(past_actions contains an item from changes):
-	        redo the steps without including the change that is included in past_actions or conclude that no changes are necessary depending on whether you think if there is more to consider!
+<additional_info>
+{{additional_information}}
+</additional_info>
 
-        Respond with entire unit test code file in output tags, even if there are not any changes! Include the entire file! No partials! Enclose it in ```csharp tags!
+<knowledge_base>
+{{knowledge_base_content}}
+</knowledge_base>
 
-        if(not entire file was provided)
-	        redo providing the entire final unit test code
-        
-        if(there is no error but not all tests passed):
-	        change the test cases so that all tests pass. This is testing after development philosophy.
+<past_actions>
+{{tool_outputs}}
+</past_actions>
 
-        if(did you not provide the entire file?!!!):
-	        redo providing the entire final unit test code
+Now, analyze the situation and plan any necessary changes. Wrap your analysis inside <test_code_analysis> tags:
 
-        !Format the output code with 4-space indentation, and use new lines to separate method declarations, block statements, and logical sections of code.!
+<test_code_analysis>
+1. Examine the build errors and unit test code:
+   - List each build error and its potential cause.
+   - Categorize errors (e.g., syntax, reference, compilation).
+   - Identify any patterns or similarities in the errors.
+   - Count the total number of errors.
 
-        # Function Under Test:
-        ```csharp
-        {{function}}
-        ```
-        # Error Messages:
-        ```bash
-        {{build_errors}}
-        ```
+2. Review the function under test and its relationship to the unit test code:
+   - Map each unit test to the corresponding part of the function under test.
+   - Count the total number of tests.
+   - Check for any inconsistencies between the test code and the function under test.
 
-        # System Under Test (SUT):
-        ```csharp
-        {{sut}}
-        ```
+3. Determine if changes are necessary in the unit testing code:
+   - Identify specific lines or sections that may need modification.
+   - Review naming conventions and ensure they follow C# best practices.
 
-        # Unit Test Code:
-        ```csharp
-        {{test_cases}}
-        ```
-        # test_file_path:
-        ```
-        {{test_file_path}}
-        ```
-        # Potentially Relevant Files:
-        ```
-        {{formatted_file_contents}}
-        ```
-        # Additional Information:
-        ```
-        {{additional_information}}
-        ```
-        # Make sure to follow the knowledge base relligiously:
-        ```
-        {{knowledge_base_content}}
-        ```
-        <IMPORTANT>
-        # Your past actions that you took and should not repeat:
-        ```
-        {{tool_outputs}}
-        ```
-        </IMPORTANT>
+4. Check using statements and object references:
+   - List any missing or incorrect using statements.
+   - Note any objects that are not recognized.
+
+5. Identify potential namespace conflicts:
+   - List places where fully qualified names might resolve issues.
+
+6. Review relevant files for context:
+   - Note any information from these files that could help resolve the issues.
+
+7. Ensure no repetition of past actions:
+   - Cross-check your planned changes against the past actions.
+
+8. Plan necessary changes to make all tests pass:
+   - Outline specific modifications needed for each identified issue.
+
+9. Relate each line of code to the knowledge base:
+   - For each planned change, reference the relevant part of the knowledge base.
+
+10. Confirm that the entire code will be provided:
+    - Even if no changes are necessary, prepare to output the full code.
+</test_code_analysis>
+
+Based on your analysis, implement the necessary changes to the unit test code. Follow these important guidelines:
+
+1. Only modify the unit testing code, not the test project file.
+2. Provide the entire unit test code file, even if there are no changes.
+3. Format the output code with 4-space indentation and use new lines to separate method declarations, block statements, and logical sections of code.
+4. Comment on each line of code, referencing the knowledge base or explaining why it doesn't apply.
+
+Present your final unit test code in the following format:
+
+```csharp
+// Entire unit test code file goes here, with comments for each line.
+// Include ALL code, even unchanged sections.
+// Format: 4-space indentation, new lines for readability.
+// Each line should have a comment referencing the knowledge base or explaining why it doesn't apply.
+```
+
+Remember to rigorously follow the program logic and the knowledge base, and avoid repeating any past actions listed above. Ensure that you provide the complete code, not just the modified sections.
     """.format(
         knowledge_base_content=knowledge_base_content,
         test_file_path=test_file_path,
