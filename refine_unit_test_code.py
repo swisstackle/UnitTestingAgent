@@ -2,8 +2,9 @@
 import ell
 # add importds for rewrite_unit_test_file and rewrite_test_project_file
 from tools import rewrite_unit_test_file
+from llm_clients import openai_client
 
-@ell.simple(model="openai/o1-mini", temperature=0.0, seed=42)
+@ell.simple(model="openai/o1-mini", client=openai_client, temperature=0.0, seed=42, max_completion_tokens=30000)
 def refine_code_based_on_errors(sut: str, test_cases: str, function: str, build_errors: str, additional_information: str, knowledge_base_content: str, test_file_path: str, unit_testing_engine: str, file_contents: list = None, tool_outputs: str = None):
     # I want to format all entries in file_contants in markdown code blocks
     # It should be a formatted string in markdown
@@ -12,42 +13,44 @@ def refine_code_based_on_errors(sut: str, test_cases: str, function: str, build_
         formatted_file_contents += f"# {file_path}\n```\n{file_content}\n```\n"
 
     user_prompt = """
-You are an expert C# developer specializing in unit testing. Your task is to analyze and potentially modify unit test code to resolve build errors or test failures. Please review the following information carefully:
+You are an expert C# developer specializing in unit testing. Your task is to analyze and potentially modify unit test code to resolve build errors or test failures.
+You are not allowed to remove any test cases because that's cheating! There will be another LLM that will check that you did not cheat.
+Please review the following information carefully:
 
 <relevant_files>
-{{formatted_file_contents}}
+{formatted_file_contents}
 </relevant_files>
 
 <unit_test_code>
-{{test_cases}}
+{test_cases}
 </unit_test_code>
 
 <build_errors>
-{{build_errors}}
+{build_errors}
 </build_errors>
 
 <function_under_test>
-{{function}}
+{function}
 </function_under_test>
 
 <system_under_test>
-{{sut}}
+{sut}
 </system_under_test>
 
 <test_file_path>
-{{test_file_path}}
+{test_file_path}
 </test_file_path>
 
 <additional_info>
-{{additional_information}}
+{additional_information}
 </additional_info>
 
 <knowledge_base>
-{{knowledge_base_content}}
+{knowledge_base_content}
 </knowledge_base>
 
 <past_actions>
-{{tool_outputs}}
+{tool_outputs}
 </past_actions>
 
 Now, analyze the situation and plan any necessary changes. Wrap your analysis inside <test_code_analysis> tags:
@@ -108,6 +111,7 @@ Present your final unit test code in the following format:
 ```
 
 Remember to rigorously follow the program logic and the knowledge base, and avoid repeating any past actions listed above. Ensure that you provide the complete code, not just the modified sections.
+Ensure that you DO NOT REMOVE any unit test cases.
     """.format(
         knowledge_base_content=knowledge_base_content,
         test_file_path=test_file_path,
@@ -122,10 +126,10 @@ Remember to rigorously follow the program logic and the knowledge base, and avoi
     )
     if not build_errors.strip():
         return [
-            ell.user(user_prompt)
+            ell.user("Build and Tests Executed Successfully")
         ]
     return [
-        ell.user(user_prompt_with_errors)
+        ell.user(user_prompt)
     ]
 
 

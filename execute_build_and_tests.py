@@ -1,6 +1,8 @@
 import subprocess
 
+from pathlib import Path
 def execute_build_and_tests(test_project_directory: str, test_namespace_and_classname:str):
+    test_project_directory = str(Path(test_project_directory).resolve())
     try:
         # Navigate to the test project directory and execute build
         build_process = subprocess.run(
