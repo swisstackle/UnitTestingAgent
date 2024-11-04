@@ -2,9 +2,9 @@
 import ell
 # add importds for rewrite_unit_test_file and rewrite_test_project_file
 from tools import rewrite_unit_test_file
-from llm_clients import openai_client
+from llm_clients import topology_client
 
-@ell.simple(model="openai/o1-mini", client=openai_client, temperature=0.0, seed=42, max_completion_tokens=30000)
+@ell.simple(model="topology-medium", client=topology_client, temperature=0.0, extra_body={'partition_id': '45fec91d-b78f-4b21-b2f7-4e5cd81f409e'})
 def refine_code_based_on_errors(sut: str, test_cases: str, function: str, build_errors: str, additional_information: str, knowledge_base_content: str, test_file_path: str, unit_testing_engine: str, file_contents: list = None, tool_outputs: str = None):
     # I want to format all entries in file_contants in markdown code blocks
     # It should be a formatted string in markdown
@@ -14,7 +14,7 @@ def refine_code_based_on_errors(sut: str, test_cases: str, function: str, build_
 
     user_prompt = """
 You are an expert C# developer specializing in unit testing. Your task is to analyze and potentially modify unit test code to resolve build errors or test failures.
-You are not allowed to remove any test cases because that's cheating! There will be another LLM that will check that you did not cheat.
+You have to make sure to provide the complete code and not just examples of unit tests because your code will directly be used in the project.
 Please review the following information carefully:
 
 <relevant_files>
@@ -108,10 +108,10 @@ Present your final unit test code in the following format:
 // Include ALL code, even unchanged sections.
 // Format: 4-space indentation, new lines for readability.
 // Each line should have a comment referencing the knowledge base or explaining why it doesn't apply.
+// After each message signature in the same line, write "DO NOT REMOVE THIS METHOD EVER" as a comment.
 ```
 
-Remember to rigorously follow the program logic and the knowledge base, and avoid repeating any past actions listed above. Ensure that you provide the complete code, not just the modified sections.
-Ensure that you DO NOT REMOVE any unit test cases.
+Remember to rigorously follow the program logic and the knowledge base, and avoid repeating any past actions listed above. Ensure that you provide the complete code.
     """.format(
         knowledge_base_content=knowledge_base_content,
         test_file_path=test_file_path,

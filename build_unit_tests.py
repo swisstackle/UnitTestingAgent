@@ -1,7 +1,7 @@
 import ell
-from llm_clients import openai_client
+from llm_clients import topology_client
 
-@ell.simple(model="openai/o1-mini", seed=42, client=openai_client, temperature=0.0, max_completion_tokens=30000)
+@ell.simple(model="topology-medium", client=topology_client, temperature=0.0, extra_body={'partition_id': '45fec91d-b78f-4b21-b2f7-4e5cd81f409e'})
 def build_unit_tests(
     function: str,
     sut: str,
