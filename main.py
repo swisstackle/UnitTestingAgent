@@ -1,10 +1,6 @@
 import ell
-from ell import Field
-from openai import Client
 import os
 import argparse
-import subprocess
-from pydantic import BaseModel, Field
 from refined_unit_tests import refined_unit_tests
 from pydantic import ValidationError
 import time
