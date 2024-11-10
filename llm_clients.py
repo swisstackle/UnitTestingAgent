@@ -9,7 +9,7 @@ openai_client = Client(
 )
 
 topology_client = Client(
-  api_key="bcb2d9f897e68944aa4db0c94154dde281d45de9ee29150228c47492894b57cf9edf2110e15931f9efcd84894ec9576287a697ba4406ed4d3b54983fee0226fd",
+  api_key="",
   base_url="https://topologychat.com/api",
 )
 
