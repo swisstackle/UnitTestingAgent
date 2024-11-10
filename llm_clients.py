@@ -18,6 +18,6 @@ topology_client = Client(
 )
 
 anthropic_client = Anthropic(
-  api_key=ell_key,
+  api_key=MODALBOX_API_KEY,
   base_url="https://api.model.box/v1",
 )
