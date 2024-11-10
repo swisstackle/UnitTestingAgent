@@ -9,8 +9,18 @@ def add_project_references(test_project_file_path: str, project_paths_to_add_to_
     You are not allowed to add any other project references or remove any project references.
     Use the rewrite_project_file tool to rewrite the test project file.
     """
-    with open(test_project_file_path, 'r') as file:
-        test_project_file_content = file.read()
+import os
+from typing import NoReturn
+
+def add_project_references(test_project_file_path: str, project_paths_to_add_to_references: list[str]):
+    if not os.path.exists(test_project_file_path):
+        raise FileNotFoundError(f"Test project file not found: {test_project_file_path}")
+
+    try:
+        with open(test_project_file_path, 'r') as file:
+            test_project_file_content = file.read()
+    except IOError as e:
+        raise IOError(f"Failed to read test project file: {e}")
     return f"""
         Rewrite the test project file to add the following project references: {project_paths_to_add_to_references}
 
