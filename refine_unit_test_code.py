@@ -2,9 +2,9 @@
 import ell
 # add importds for rewrite_unit_test_file and rewrite_test_project_file
 from tools import rewrite_unit_test_file
-from llm_clients import openai_client
+from llm_clients import anthropic_client, openai_client
 
-@ell.simple(model="openai/gpt-4o", client=openai_client, temperature=0.0)
+@ell.simple(model="claude-3-5-sonnet-20241022", max_tokens=8000, client=anthropic_client, temperature=0.0)
 def refine_code_based_on_errors(sut: str, test_cases: str, function: str, build_errors: str, additional_information: str, knowledge_base_content: str, test_file_path: str, unit_testing_engine: str, file_contents: list = None, tool_outputs: str = None):
     # I want to format all entries in file_contants in markdown code blocks
     # It should be a formatted string in markdown
