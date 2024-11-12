@@ -2,9 +2,9 @@
 import ell
 # add importds for rewrite_unit_test_file and rewrite_test_project_file
 from tools import rewrite_unit_test_file
-from llm_clients import topology_client
+from llm_clients import openai_client
 
-@ell.simple(model="topology-medium", client=topology_client, temperature=0.0, extra_body={'partition_id': '45fec91d-b78f-4b21-b2f7-4e5cd81f409e'})
+@ell.simple(model="openai/gpt-4o", client=openai_client, temperature=0.0)
 def refine_code_based_on_errors(sut: str, test_cases: str, function: str, build_errors: str, additional_information: str, knowledge_base_content: str, test_file_path: str, unit_testing_engine: str, file_contents: list = None, tool_outputs: str = None):
     # I want to format all entries in file_contants in markdown code blocks
     # It should be a formatted string in markdown
@@ -13,8 +13,9 @@ def refine_code_based_on_errors(sut: str, test_cases: str, function: str, build_
         formatted_file_contents += f"# {file_path}\n```\n{file_content}\n```\n"
 
     user_prompt = """
-You are an expert C# developer specializing in unit testing. Your task is to analyze and potentially modify unit test code to resolve build errors or test failures.
-You have to make sure to provide the complete code and not just examples of unit tests because your code will directly be used in the project.
+You are a senior C# developer with expertise in unit approval testing. Your task is to analyze, modify, and improve unit approval test code to resolve build errors and test failures.
+However, adding or removing test cases is not in the scope. You solely are responsible for eliminating build errors and test failures.
+You are a test after development developer, which means that you have to adjust the unit test code so that the tests pass. This is also called "approval testing."
 Please review the following information carefully:
 
 <relevant_files>
@@ -29,29 +30,57 @@ Please review the following information carefully:
 {build_errors}
 </build_errors>
 
+You solely are responsible for eliminating build errors and test failures. Make sure to review past actions.
+Make sure that the file resides within the namespace of the test project, not where the SUT is.
+
 <function_under_test>
 {function}
 </function_under_test>
+
+You solely are responsible for eliminating build errors and test failures. Make sure to review past actions.
+
+Make sure that the file resides within the namespace of the test project, not where the SUT is.
 
 <system_under_test>
 {sut}
 </system_under_test>
 
+You solely are responsible for eliminating build errors and test failures. Make sure to review past actions.
+
+Make sure that the file resides within the namespace of the test project, not where the SUT is.
+
 <test_file_path>
 {test_file_path}
 </test_file_path>
+
+
+You solely are responsible for eliminating build errors and test failures. Make sure to review past actions.
+
+Make sure that the file resides within the namespace of the test project, not where the SUT is.
 
 <additional_info>
 {additional_information}
 </additional_info>
 
+You solely are responsible for eliminating build errors and test failures. Make sure to review past actions.
+
+Make sure that the file resides within the namespace of the test project, not where the SUT is.
+
 <knowledge_base>
 {knowledge_base_content}
 </knowledge_base>
 
+You solely are responsible for eliminating build errors and test failures. Make sure to review past actions.
+
+Make sure that the file resides within the namespace of the test project, not where the SUT is.
+
 <past_actions>
 {tool_outputs}
 </past_actions>
+
+
+You solely are responsible for eliminating build errors and test failures. Make sure to review past actions.
+You solely are responsible for eliminating build errors and test failures.
 
 Now, analyze the situation and plan any necessary changes. Wrap your analysis inside <test_code_analysis> tags:
 
@@ -112,6 +141,8 @@ Present your final unit test code in the following format:
 ```
 
 Remember to rigorously follow the program logic and the knowledge base, and avoid repeating any past actions listed above. Ensure that you provide the complete code.
+
+You solely are responsible for eliminating build errors and test failures. Make sure to review past actions.
     """.format(
         knowledge_base_content=knowledge_base_content,
         test_file_path=test_file_path,
@@ -133,7 +164,7 @@ Remember to rigorously follow the program logic and the knowledge base, and avoi
     ]
 
 
-@ell.complex(model="openai/gpt-4o-mini", temperature=0.0, tools=[rewrite_unit_test_file])
+@ell.complex(model="openai/gpt-4o-mini", temperature=0.0, client=openai_client, tools=[rewrite_unit_test_file])
 def parse_function_calls(reasoningoutput:str, unit_test_path:str):
     """
     Your only responsibility is to parse the reasoning output of the LLM and return the function calls that are needed.

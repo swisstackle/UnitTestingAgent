@@ -1,7 +1,7 @@
 import ell
-from llm_clients import topology_client
+from llm_clients import openai_client
 
-@ell.simple(model="topology-medium", client=topology_client, temperature=0.0, extra_body={'partition_id': '45fec91d-b78f-4b21-b2f7-4e5cd81f409e'})
+@ell.simple(model="openai/gpt-4o", client=openai_client, temperature=0.0)
 def build_unit_tests(
     function: str,
     sut: str,
@@ -16,8 +16,9 @@ def build_unit_tests(
     for file_path, file_content in file_contents.items():
         formatted_file_contents += f"# {file_path}\n```\n{file_content}\n```\n"
     user_prompt = f"""
-        You are an expert C# and .NET developer, specializing in creating unit tests for .NET applications. Your task is to create unit tests for a specific function based on the provided information and knowledge base. It is crucial that you strictly adhere to the provided knowledge base at all times.
+        You are an expert C# and .NET developer, specializing in creating unit approval tests for .NET applications. Your task is to create unit tests for a specific function based on the provided information and knowledge base. It is crucial that you strictly adhere to the provided knowledge base at all times.
         Very IMPORTANT: In the code that you generate, for every line that you make, you have to write a comment where in the knowledgebase you found similar code that you used. If you have to write code that you didnt find in the knowledge base, just write "couldnt find" as a comment.
+        Make sure that the file resides within the namespace of the test project, not where the SUT is.
 
         Here is the file containing the function under test:
         <function_file>

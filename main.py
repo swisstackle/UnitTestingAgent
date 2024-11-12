@@ -17,7 +17,7 @@ from github_bot import *
 
 ell.init(default_client=openai_client, store='./logdir', autocommit=True, verbose=True)
 
-@ell.complex(model="openai/gpt-4o-mini", temperature=0.0, response_format=refined_unit_tests, seed=42)
+@ell.complex(model="openai/gpt-4o-mini", temperature=0.0, client=openai_client, response_format=refined_unit_tests, seed=42)
 def parse_refined_unit_tests(output: str):
     """
     You are responsivle for parsing the output of the refine_code_based_on_errors agent into RefinedUnitTests format.
@@ -25,6 +25,30 @@ def parse_refined_unit_tests(output: str):
     return f"""
     {output}
     """
+def update_project_file(test_file_content, test_file_path, root_directory, project_file_path):
+        # Extracting namespace and class names from the test file content to identify the test class and its namespace
+        namespace_match = re.search(r'namespace\s+(\w+(?:\.\w+)*)', test_file_content)
+        class_matches = re.finditer(r'(?:public|private|internal)?\s*class\s+(\w+)', test_file_content)
+        
+        # Find the test class (not DTO or Factory)
+        test_class_name = None
+        for match in class_matches:
+            class_name = match.group(1)
+            if 'DTO' not in class_name and 'Factory' not in class_name:
+                test_class_name = class_name
+                break
+        
+        # The following steps are necessary to ensure that all required project references are correctly added to the test project.
+        # This includes identifying the namespace and class name of the test class, finding project references in the test file,
+        # identifying any unreferenced .csproj files, and adding those references to the primary .csproj file.
+        namespace_name = namespace_match.group(1) if namespace_match else None
+        namespace_and_classname = f"{namespace_name}.{test_class_name}" if namespace_name and test_class_name else test_class_name
+        project_references = get_project_references(test_file_path, root_directory)
+        unreferenced_csproj_files = find_unreferenced_csproj_files(project_file_path, project_references)
+        function_calls = add_project_references(project_file_path, unreferenced_csproj_files)
+        for tool_call in function_calls.tool_calls:
+            tool_call()
+        return namespace_and_classname
 
 def main():
     parser = argparse.ArgumentParser(description="Generate and execute unit tests.")
@@ -40,9 +64,9 @@ def main():
     parser.add_argument('--root_directory', type=str, required=True, help='The root directory of the solution')
     args = parser.parse_args()
 
-    repo = create_repo(args.root_directory)
-    branch = create_branch(repo, args.test_file)
-    checkout_branch(branch)
+    #repo = create_repo(args.root_directory)
+    #branch = create_branch(repo, args.test_file)
+    #checkout_branch(branch)
 
     testprojectdirectory = os.path.dirname(args.csproj)
 
@@ -111,29 +135,10 @@ def main():
 
         with open(args.test_file, 'r') as file:
             test_file_content = file.read()
+
+        namespace_and_classname = update_project_file(test_file_content, args.test_file, args.root_directory, args.csproj)
         
-        # Extracting namespace and class names from the test file content to identify the test class and its namespace
-        namespace_match = re.search(r'namespace\s+(\w+(?:\.\w+)*)', test_file_content)
-        class_matches = re.finditer(r'(?:public|private|internal)?\s*class\s+(\w+)', test_file_content)
-        
-        # Find the test class (not DTO or Factory)
-        test_class_name = None
-        for match in class_matches:
-            class_name = match.group(1)
-            if 'DTO' not in class_name and 'Factory' not in class_name:
-                test_class_name = class_name
-                break
-        
-        # The following steps are necessary to ensure that all required project references are correctly added to the test project.
-        # This includes identifying the namespace and class name of the test class, finding project references in the test file,
-        # identifying any unreferenced .csproj files, and adding those references to the primary .csproj file.
-        namespace_name = namespace_match.group(1) if namespace_match else None
-        namespace_and_classname = f"{namespace_name}.{test_class_name}" if namespace_name and test_class_name else test_class_name
-        project_references = get_project_references(args.test_file, args.root_directory)
-        unreferenced_csproj_files = find_unreferenced_csproj_files(args.csproj, project_references)
-        function_calls = add_project_references(args.csproj, unreferenced_csproj_files)
-        for tool_call in function_calls.tool_calls:
-            tool_call()
+
     else:
         raise Exception("Unit test code was not generated correctly. Please try again.")
 
@@ -148,10 +153,10 @@ def main():
 
         if "Build and Tests Executed Successfully" in build_result:
             print("Success! All tests passed.")
-            stage_and_commit(repo, [args.test_file], "new commit")
-            push_to_origin(repo, branch)
-            random_nr = 1;
-            create_pr_to_master_on_lean("New Pr " + random_nr, "PR for " + arg.test_file, args.test_file)
+            #stage_and_commit(repo, [args.test_file], "new commit")
+            #push_to_origin(repo, branch)
+            #random_nr = 1;
+            #create_pr_to_master_on_lean("New Pr " + random_nr, "PR for " + arg.test_file, args.test_file)
             break
         else:
             print("Tests failed. Build errors:\n" + build_result)
@@ -194,6 +199,10 @@ def main():
         # Executing the tool calls
         for tool_call in toolsparsed.tool_calls:
             tool_call()
+        with open(args.test_file, 'r') as file:
+            test_file_content = file.read()
+
+        update_project_file(test_file_content, args.test_file, args.root_directory, args.csproj)
 
 if __name__ == "__main__":
     main()
