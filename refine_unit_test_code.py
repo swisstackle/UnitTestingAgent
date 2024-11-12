@@ -26,29 +26,26 @@ Please review the following information carefully:
 {test_cases}
 </unit_test_code>
 
-<build_errors>
+<failed_tests or build_errors>
 {build_errors}
-</build_errors>
+</failed_tests or build_errors>
 
 You solely are responsible for eliminating build errors and test failures. Make sure to review past actions.
-Make sure that the file resides within the namespace of the test project, not where the SUT is.
-
+Make sure that the classes in the unit test file reside within the namespace of the test project, not where the SUT is.
 <function_under_test>
 {function}
 </function_under_test>
 
 You solely are responsible for eliminating build errors and test failures. Make sure to review past actions.
 
-Make sure that the file resides within the namespace of the test project, not where the SUT is.
-
+Make sure that the classes in the unit test file reside within the namespace of the test project, not where the SUT is.
 <system_under_test>
 {sut}
 </system_under_test>
 
 You solely are responsible for eliminating build errors and test failures. Make sure to review past actions.
 
-Make sure that the file resides within the namespace of the test project, not where the SUT is.
-
+Make sure that the classes in the unit test file reside within the namespace of the test project, not where the SUT is.
 <test_file_path>
 {test_file_path}
 </test_file_path>
@@ -56,31 +53,27 @@ Make sure that the file resides within the namespace of the test project, not wh
 
 You solely are responsible for eliminating build errors and test failures. Make sure to review past actions.
 
-Make sure that the file resides within the namespace of the test project, not where the SUT is.
-
+Make sure that the classes in the unit test file reside within the namespace of the test project, not where the SUT is.
 <additional_info>
 {additional_information}
 </additional_info>
 
 You solely are responsible for eliminating build errors and test failures. Make sure to review past actions.
 
-Make sure that the file resides within the namespace of the test project, not where the SUT is.
-
+Make sure that the classes in the unit test file reside within the namespace of the test project, not where the SUT is.
 <knowledge_base>
 {knowledge_base_content}
 </knowledge_base>
 
 You solely are responsible for eliminating build errors and test failures. Make sure to review past actions.
 
-Make sure that the file resides within the namespace of the test project, not where the SUT is.
-
+Make sure that the classes in the unit test file reside within the namespace of the test project, not where the SUT is.
 <past_actions>
 {tool_outputs}
 </past_actions>
 
 
 You solely are responsible for eliminating build errors and test failures. Make sure to review past actions.
-You solely are responsible for eliminating build errors and test failures.
 
 Now, analyze the situation and plan any necessary changes. Wrap your analysis inside <test_code_analysis> tags:
 
