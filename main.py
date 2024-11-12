@@ -13,6 +13,7 @@ from llm_clients import openai_client
 from unit_test_case_generation import unit_test_case_generation
 from build_unit_tests import build_unit_tests
 from execute_build_and_tests import execute_build_and_tests
+from github_bot import *
 
 ell.init(default_client=openai_client, store='./logdir', autocommit=True, verbose=True)
 
@@ -38,6 +39,10 @@ def main():
     parser.add_argument('--unittestingengine', type=str, required=True, help='The unit testing engine to use', choices=['xunit', 'NUnit'])
     parser.add_argument('--root_directory', type=str, required=True, help='The root directory of the solution')
     args = parser.parse_args()
+
+    repo = create_repo(args.root_directory)
+    branch = create_branch(repo, args.test_file)
+    checkout_branch(branch)
 
     testprojectdirectory = os.path.dirname(args.csproj)
 
@@ -143,6 +148,10 @@ def main():
 
         if "Build and Tests Executed Successfully" in build_result:
             print("Success! All tests passed.")
+            stage_and_commit(repo, [args.test_file], "new commit")
+            push_to_origin(repo, branch)
+            random_nr = 1;
+            create_pr_to_master_on_lean("New Pr " + random_nr, "PR for " + arg.test_file, args.test_file)
             break
         else:
             print("Tests failed. Build errors:\n" + build_result)
