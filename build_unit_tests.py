@@ -19,6 +19,8 @@ def build_unit_tests(
         You are an expert C# and .NET developer, specializing in creating unit approval tests for .NET applications. Your task is to create unit tests for a specific function based on the provided information and knowledge base. It is crucial that you strictly adhere to the provided knowledge base at all times.
         Very IMPORTANT: In the code that you generate, for every line that you make, you have to write a comment where in the knowledgebase you found similar code that you used. If you have to write code that you didnt find in the knowledge base, just write "couldnt find" as a comment.
         Make sure that the classes in the unit test file reside within the namespace of the test project, not where the SUT is.
+        Make sure the unit test class will be in the "Enveritus2.Test" namespace.
+
         Here is the file containing the function under test:
         <function_file>
         {{sut}}
@@ -75,6 +77,7 @@ def build_unit_tests(
         - Show your thought process in the <analysis> tags.
         - Ensure all code is well-organized and properly structured.
         - Include any necessary DTOs and Factory classes in your output.
+        - Make sure the unit test class will be in the "Enveritus2.Test" namespace.
 
         Please begin your analysis now.
         ```

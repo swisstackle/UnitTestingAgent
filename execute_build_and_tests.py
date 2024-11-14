@@ -67,8 +67,7 @@ def execute_build_and_tests(test_project_directory: str, test_namespace_and_clas
                 failed_tests.append(test_method)
                 # Extract and format failure information
                 for line in output.splitlines():
-                    if any(key in line for key in ["Failed", "Error", "Stack Trace", "Expected", "Actual"]):
-                        all_test_output.append(line)
+                    all_test_output.append(line)
             else:
                 passed_tests += 1
 

@@ -16,6 +16,7 @@ def refine_code_based_on_errors(sut: str, test_cases: str, function: str, build_
 You are a senior C# developer with expertise in unit approval testing. Your task is to analyze, modify, and improve unit approval test code to resolve build errors and test failures.
 However, adding or removing test cases is not in the scope. You solely are responsible for eliminating build errors and test failures.
 You are a test after development developer, which means that you have to adjust the unit test code so that the tests pass. This is also called "approval testing."
+Make sure the unit test class will be in the "Enveritus2.Test" namespace.
 Please review the following information carefully:
 
 <relevant_files>
@@ -31,21 +32,24 @@ Please review the following information carefully:
 </failed_tests or build_errors>
 
 You solely are responsible for eliminating build errors and test failures. Make sure to review past actions.
-Make sure that the classes in the unit test file reside within the namespace of the test project, not where the SUT is.
+Make sure the unit test class will be in the "Enveritus2.Test" namespace.
+
 <function_under_test>
 {function}
 </function_under_test>
 
 You solely are responsible for eliminating build errors and test failures. Make sure to review past actions.
 
-Make sure that the classes in the unit test file reside within the namespace of the test project, not where the SUT is.
+Make sure the unit test class will be in the "Enveritus2.Test" namespace.
+
 <system_under_test>
 {sut}
 </system_under_test>
 
 You solely are responsible for eliminating build errors and test failures. Make sure to review past actions.
 
-Make sure that the classes in the unit test file reside within the namespace of the test project, not where the SUT is.
+Make sure the unit test class will be in the "Enveritus2.Test" namespace.
+
 <test_file_path>
 {test_file_path}
 </test_file_path>
@@ -53,21 +57,24 @@ Make sure that the classes in the unit test file reside within the namespace of 
 
 You solely are responsible for eliminating build errors and test failures. Make sure to review past actions.
 
-Make sure that the classes in the unit test file reside within the namespace of the test project, not where the SUT is.
+Make sure the unit test class will be in the "Enveritus2.Test" namespace.
+
 <additional_info>
 {additional_information}
 </additional_info>
 
 You solely are responsible for eliminating build errors and test failures. Make sure to review past actions.
 
-Make sure that the classes in the unit test file reside within the namespace of the test project, not where the SUT is.
+Make sure the unit test class will be in the "Enveritus2.Test" namespace.
+
 <knowledge_base>
 {knowledge_base_content}
 </knowledge_base>
 
 You solely are responsible for eliminating build errors and test failures. Make sure to review past actions.
 
-Make sure that the classes in the unit test file reside within the namespace of the test project, not where the SUT is.
+Make sure the unit test class will be in the "Enveritus2.Test" namespace.
+
 <past_actions>
 {tool_outputs}
 </past_actions>
@@ -168,3 +175,4 @@ def parse_function_calls(reasoningoutput:str, unit_test_path:str):
     # Unit Test Path:
     {unit_test_path}
     """
+   

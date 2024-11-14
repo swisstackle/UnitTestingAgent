@@ -9,6 +9,7 @@ def add_project_references(test_project_file_path: str, project_paths_to_add_to_
     Your only responsibility is to add project references to the csproj test project file that are given to you.
     You are not allowed to add any other project references or remove any project references.
     Use the rewrite_project_file tool to rewrite the test project file.
+    Don't insert any weird BOM characters.
     """
     if not os.path.exists(test_project_file_path):
         raise FileNotFoundError(f"Test project file not found: {test_project_file_path}")
