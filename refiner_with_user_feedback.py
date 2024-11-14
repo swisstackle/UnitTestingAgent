@@ -4,9 +4,11 @@ from execute_until_build_succeeds import execute_until_build_succeeds
 from tools import rewrite_unit_test_file
 from llm_clients import anthropic_client, openai_client
 import ell
+from refine_unit_test_code import parse_function_calls
+import os
 
 @ell.simple(model="claude-3-5-sonnet-20241022", max_tokens=8000, client=anthropic_client, temperature=0.0)
-def refine_code_based_on_suggestion(sut: str, function: str, additional_information: str, knowledge_base_content: str, test_file_path: str, unit_testing_engine: str, file_contents: list = None, suggestion_from_developer : str, test_cases_code : str):
+def refine_code_based_on_suggestion(sut: str, function: str, additional_information: str, knowledge_base_content: str, test_file_path: str, unit_testing_engine: str, file_contents: list[str], suggestion_from_developer: str, test_cases_code: str):
     # I want to format all entries in file_contants in markdown code blocks
     # It should be a formatted string in markdown
     formatted_file_contents = ""
@@ -137,10 +139,6 @@ Make sure the unit test class will be in the "Enveritus2.Test" namespace.
         suggestion_from_developer=suggestion_from_developer,
         test_cases_code=test_cases_code
     )
-    if not build_errors.strip():
-        return [
-            ell.user("Build and Tests Executed Successfully")
-        ]
     return [
         ell.user(user_prompt)
     ]
@@ -150,17 +148,17 @@ def main():
     
     # Required arguments
     parser.add_argument('--csproj', required=True, help='Directory containing the test project')
-    parser.add_argument('--namespace-classname', required=True, help='Namespace and class name in format Namespace.ClassName')
+    parser.add_argument('--namespace_classname', required=True, help='Namespace and class name in format Namespace.ClassName')
     parser.add_argument('--test_file', required=True, help='Path to the test file')
     parser.add_argument('--developer-suggestion', required=True, help='Suggestion from senior developer')
     parser.add_argument('--sut', required=True, help='The path to the system under test file')
-    parser.add_argument('--unit-testing-engine', required=True, default='NUnit', help='Unit testing framework being used')
-    parser.add_argument('--root-directory', required=True, help='Root directory of the project')
+    parser.add_argument('--unittestingengine', required=True, default='NUnit', help='Unit testing framework being used')
+    parser.add_argument('--root_directory', required=True, help='Root directory of the project')
     parser.add_argument('--function', required=True, help='Name of the function being tested')
     # Optional arguments
     parser.add_argument('--additional-info', help='Additional context information')
     parser.add_argument('--knowledge', help='Path to knowledge base content')
-    parser.add_argument('--files', help='Relevant Files')
+    parser.add_argument('--files', type=str, nargs='+', help='Relevant Files')
     
     args = parser.parse_args()
 
@@ -194,37 +192,43 @@ def main():
             function=args.function or "",
             additional_information=args.additional_info or "",
             knowledge_base_content=knowledge_base_content or "",
-            test_file_path=args.test_file_path,
-            unit_testing_engine=args.unit_testing_engine,
+            test_file_path=args.test_file,
+            unit_testing_engine=args.unittestingengine,
             file_contents=file_contents or [],
             suggestion_from_developer=args.developer_suggestion,
             sut=sut_content
         )
 
         # Parse the suggestion implementation result
-        toolsparsed = parse_function_calls(suggestion_result, args.test_file_path)
+        toolsparsed = parse_function_calls(suggestion_result, args.test_file)
         
         # Apply the suggested changes
         for tool_call in toolsparsed.tool_calls:
             tool_call()
 
         # Read the updated test content
-        with open(args.test_file_path, 'r') as f:
+        with open(args.test_file, 'r') as f:
             updated_test_content = f.read()
+        test_project_directory = os.path.dirname(args.csproj)
 
         # Stage 2: Validate and refine implementation
         print("Stage 2: Validating and refining implementation...")
         execute_until_build_succeeds(
-            testprojectdirectory=args.test_project_dir,
+            testprojectdirectory=test_project_directory,
             namespace_and_classname=args.namespace_classname,
             sut_content=sut_content,
             unit_tests_first=updated_test_content,
-            test_file_path=args.test_file_path,
-            unit_testing_engine=args.unit_testing_engine,
+            test_file_path=args.test_file,
+            unit_testing_engine=args.unittestingengine,
             additional_information=args.additional_info,
             knowledge_base_content=knowledge_base_content,
             file_contents=file_contents,
-            function_name=args.function or ""
+            function_name=args.function or "",
             root_directory=args.root_directory,
             csproj_path=args.csproj
         )
+    finally:
+        print("Error")
+
+if __name__ == "__main__":
+    main()

@@ -1,10 +1,25 @@
 import subprocess
 from pathlib import Path
+import shutil
+import os
+
 
 def execute_build_and_tests(test_project_directory: str, test_namespace_and_classname: str):
     test_project_directory = str(Path(test_project_directory).resolve())
+    bin_directory = os.path.join(test_project_directory, "bin")
+    if os.path.exists(bin_directory):
+        shutil.rmtree(bin_directory)
     try:
         # Navigate to the test project directory and execute build
+        clean_process = subprocess.run(
+            ["dotnet", "clean"],
+            cwd=test_project_directory,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            check=True
+        )
+
         build_process = subprocess.run(
             ["dotnet", "build", "-consoleloggerparameters:ErrorsOnly"],
             cwd=test_project_directory,

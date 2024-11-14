@@ -80,4 +80,4 @@ def execute_until_build_succeeds(
         with open(test_file_path, 'r') as file:
             test_file_content = file.read()
 
-        namespace_and_classname = update_project_file(test_file_content, test_file_path, root_directory, csproj_path)
+        update_project_file(test_file_content, test_file_path, root_directory, csproj_path)
