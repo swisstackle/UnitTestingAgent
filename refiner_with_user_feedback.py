@@ -6,7 +6,7 @@ from llm_clients import anthropic_client, openai_client
 import ell
 
 @ell.simple(model="claude-3-5-sonnet-20241022", max_tokens=8000, client=anthropic_client, temperature=0.0)
-def refine_code_based_on_suggestion(sut: str, function: str, additional_information: str, knowledge_base_content: str, test_file_path: str, unit_testing_engine: str, file_contents: list = None, suggestion_from_developer : str):
+def refine_code_based_on_suggestion(sut: str, function: str, additional_information: str, knowledge_base_content: str, test_file_path: str, unit_testing_engine: str, file_contents: list = None, suggestion_from_developer : str, test_cases_code : str):
     # I want to format all entries in file_contants in markdown code blocks
     # It should be a formatted string in markdown
     formatted_file_contents = ""
@@ -28,7 +28,7 @@ Please review the following information carefully:
 </relevant_files>
 
 <unit_test_code>
-{test_cases}
+{test_cases_code}
 </unit_test_code>
 
 You solely are responsible for implementing the suggestion. Do NOTHING else.
@@ -134,7 +134,8 @@ Make sure the unit test class will be in the "Enveritus2.Test" namespace.
         additional_information=additional_information,
         formatted_file_contents=formatted_file_contents,
         unit_testing_engine=unit_testing_engine,
-        suggestion_from_developer=suggestion_from_developer
+        suggestion_from_developer=suggestion_from_developer,
+        test_cases_code=test_cases_code
     )
     if not build_errors.strip():
         return [
@@ -148,53 +149,56 @@ def main():
     parser = argparse.ArgumentParser(description='Refine unit tests based on developer suggestion and validate implementation')
     
     # Required arguments
-    parser.add_argument('--test-project-dir', required=True, help='Directory containing the test project')
+    parser.add_argument('--csproj', required=True, help='Directory containing the test project')
     parser.add_argument('--namespace-classname', required=True, help='Namespace and class name in format Namespace.ClassName')
-    parser.add_argument('--test-file-path', required=True, help='Path to the test file')
+    parser.add_argument('--test_file', required=True, help='Path to the test file')
     parser.add_argument('--developer-suggestion', required=True, help='Suggestion from senior developer')
-    
+    parser.add_argument('--sut', required=True, help='The path to the system under test file')
+    parser.add_argument('--unit-testing-engine', required=True, default='NUnit', help='Unit testing framework being used')
+    parser.add_argument('--root-directory', required=True, help='Root directory of the project')
+    parser.add_argument('--function', required=True, help='Name of the function being tested')
     # Optional arguments
-    parser.add_argument('--unit-testing-engine', default='NUnit', help='Unit testing framework being used')
     parser.add_argument('--additional-info', help='Additional context information')
-    parser.add_argument('--knowledge-base', help='Path to knowledge base content')
-    parser.add_argument('--function-name', help='Name of the function being tested')
-    parser.add_argument('--root-directory', help='Root directory of the project')
-
+    parser.add_argument('--knowledge', help='Path to knowledge base content')
     parser.add_argument('--files', help='Relevant Files')
     
     args = parser.parse_args()
 
     # Load knowledge base content if provided
     knowledge_base_content = ""
-    if args.knowledge_base and Path(args.knowledge_base).exists():
-        with open(args.knowledge_base, 'r') as f:
+    if args.knowledge and Path(args.knowledge).exists():
+        with open(args.knowledge, 'r') as f:
             knowledge_base_content = f.read()
 
+    sut_content = ""
+    if args.sut and Path(args.sut).exists():
+        with open(args.sut, 'r') as f:
+            sut_content = f.read()
+
     # Load current test file content
-    with open(args.test_file_path, 'r') as f:
+    with open(args.test_file, 'r') as f:
         current_test_content = f.read()
 
     # Collect file contents
     file_contents = {}
-
-    if args.test_file_path:
-        file_contents[args.test_file_path] = current_test_content
-    if args.:
+    if args.files:
         for file_path in args.files:
             with open(file_path, 'r') as file:
                 file_contents[file_path] = file.read()
+
     try:
         # Stage 1: Apply developer's suggestion
         print("Stage 1: Implementing developer's suggestion...")
         suggestion_result = refine_code_based_on_suggestion(
-            sut=current_test_content,
-            function=args.function_name or "",
+            test_cases_code=current_test_content,
+            function=args.function or "",
             additional_information=args.additional_info or "",
-            knowledge_base_content=knowledge_base_content,
+            knowledge_base_content=knowledge_base_content or "",
             test_file_path=args.test_file_path,
             unit_testing_engine=args.unit_testing_engine,
-            file_contents=file_contents,
-            suggestion_from_developer=args.developer_suggestion
+            file_contents=file_contents or [],
+            suggestion_from_developer=args.developer_suggestion,
+            sut=sut_content
         )
 
         # Parse the suggestion implementation result
@@ -213,10 +217,14 @@ def main():
         execute_until_build_succeeds(
             testprojectdirectory=args.test_project_dir,
             namespace_and_classname=args.namespace_classname,
-            sut_content=args.sut_content,
+            sut_content=sut_content,
             unit_tests_first=updated_test_content,
             test_file_path=args.test_file_path,
             unit_testing_engine=args.unit_testing_engine,
             additional_information=args.additional_info,
             knowledge_base_content=knowledge_base_content,
-            file_contents=file_contents
+            file_contents=file_contents,
+            function_name=args.function or ""
+            root_directory=args.root_directory,
+            csproj_path=args.csproj
+        )
