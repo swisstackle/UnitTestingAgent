@@ -29,7 +29,7 @@ def execute_until_build_succeeds(
     past_actions = []
     build_result = ""
     
-    while("Build and Tests Executed Successfully" not in build_result):
+    while("All tests passed successfully!" not in build_result):
         # Execute the build and tests
         build_result = execute_build_and_tests(testprojectdirectory, namespace_and_classname)
 
