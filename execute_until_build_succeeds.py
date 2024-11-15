@@ -4,6 +4,7 @@ from refine_unit_test_code import refine_code_based_on_errors, parse_function_ca
 from execute_build_and_tests import execute_build_and_tests
 from parse_refined_unit_tests import parse_refined_unit_tests
 from update_project_file import update_project_file
+from agent_check_past_actions import check_actions
 
 
 def execute_until_build_succeeds(
@@ -28,8 +29,10 @@ def execute_until_build_succeeds(
     """
     past_actions = []
     build_result = ""
+    max_tries = 5
+    attempt_to_resolve_errors = 0
     
-    while("All tests passed successfully!" not in build_result):
+    while(("All tests passed successfully!" not in build_result) and (attempt_to_resolve_errors <= max_tries)):
         # Execute the build and tests
         build_result = execute_build_and_tests(testprojectdirectory, namespace_and_classname)
 
@@ -38,7 +41,18 @@ def execute_until_build_succeeds(
             break
         else:
             print("Tests failed. Build errors:\n" + build_result)
-            
+
+        if(attempt_to_resolve_errors >= max_tries):
+            needs_human = check_actions(past_actions).parsed.needs_human
+            if(needs_human):
+                # redirect to human
+                # commit and push code
+                # maybe send a teams message
+                print("Contacting human...")
+                break
+            else:
+                attempt_to_resolve_errors = 0
+
         # Generate unit tests
         max_retries = 3
         retry_delay = 2  # seconds
@@ -72,7 +86,9 @@ def execute_until_build_succeeds(
         # Parse the refined unit tests to extract the action taken by the agent
         parsed = parse_refined_unit_tests(unit_tests)
         parsed = parsed.parsed
-        past_actions.append(parsed.action_taken + "!!!")
+        past_actions.append("<" + parsed.action_taken + ">")
+        if(len(past_actions) > 10):
+            past_actions.pop(0)
         
         # Executing the tool calls
         for tool_call in toolsparsed.tool_calls:
@@ -81,3 +97,4 @@ def execute_until_build_succeeds(
             test_file_content = file.read()
 
         update_project_file(test_file_content, test_file_path, root_directory, csproj_path)
+        attempt_to_resolve_errors = attempt_to_resolve_errors + 1

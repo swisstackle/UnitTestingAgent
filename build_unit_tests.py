@@ -1,7 +1,7 @@
 import ell
-from llm_clients import anthropic_client
+from llm_clients import openai_client_for_openrouter
 
-@ell.simple(model="claude-3-5-sonnet-20241022", max_tokens=8000, client=anthropic_client, temperature=0.0)
+@ell.simple(model="anthropic/claude-3.5-sonnet", max_tokens=8000, client=openai_client_for_openrouter, temperature=0.0)
 def build_unit_tests(
     function: str,
     sut: str,

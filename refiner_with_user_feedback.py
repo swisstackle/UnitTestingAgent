@@ -2,12 +2,12 @@ import argparse
 from pathlib import Path
 from execute_until_build_succeeds import execute_until_build_succeeds
 from tools import rewrite_unit_test_file
-from llm_clients import anthropic_client, openai_client
+from llm_clients import openai_client_for_openrouter, openai_client
 import ell
 from refine_unit_test_code import parse_function_calls
 import os
 
-@ell.simple(model="claude-3-5-sonnet-20241022", max_tokens=8000, client=anthropic_client, temperature=0.0)
+@ell.simple(model="anthropic/claude-3.5-sonnet", max_tokens=8000, client=openai_client_for_openrouter, temperature=0.0)
 def refine_code_based_on_suggestion(sut: str, function: str, additional_information: str, knowledge_base_content: str, test_file_path: str, unit_testing_engine: str, file_contents: list[str], suggestion_from_developer: str, test_cases_code: str):
     # I want to format all entries in file_contants in markdown code blocks
     # It should be a formatted string in markdown

@@ -2,9 +2,9 @@
 import ell
 # add importds for rewrite_unit_test_file and rewrite_test_project_file
 from tools import rewrite_unit_test_file
-from llm_clients import anthropic_client, openai_client
+from llm_clients import openai_client_for_openrouter, openai_client
 
-@ell.simple(model="claude-3-5-sonnet-20241022", max_tokens=8000, client=anthropic_client, temperature=0.0)
+@ell.simple(model="anthropic/claude-3.5-sonnet", max_tokens=8000, client=openai_client_for_openrouter, temperature=0.0)
 def refine_code_based_on_errors(sut: str, test_cases: str, function: str, build_errors: str, additional_information: str, knowledge_base_content: str, test_file_path: str, unit_testing_engine: str, file_contents: list = None, tool_outputs: str = None):
     # I want to format all entries in file_contants in markdown code blocks
     # It should be a formatted string in markdown
@@ -75,9 +75,9 @@ You solely are responsible for eliminating build errors and test failures. Make 
 
 Make sure the unit test class will be in the "Enveritus2.Test" namespace.
 
-<past_actions>
+<past_actions that are seperated by <, > and commas> 
 {tool_outputs}
-</past_actions>
+</past_actions that are seperated by <, > and commas>
 
 
 You solely are responsible for eliminating build errors and test failures. Make sure to review past actions.
