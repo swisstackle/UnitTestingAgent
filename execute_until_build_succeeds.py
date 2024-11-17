@@ -5,7 +5,8 @@ from execute_build_and_tests import execute_build_and_tests
 from parse_refined_unit_tests import parse_refined_unit_tests
 from update_project_file import update_project_file
 from agent_check_past_actions import check_actions
-
+from github_bot import *
+from refiner_with_user_feedback import refine_code_based_on_suggestion
 
 def execute_until_build_succeeds(
     testprojectdirectory,
@@ -45,11 +46,15 @@ def execute_until_build_succeeds(
         if(attempt_to_resolve_errors >= max_tries):
             needs_human = check_actions(past_actions).parsed.needs_human
             if(needs_human):
-                # redirect to human
                 # commit and push code
-                # maybe send a teams message
-                print("Contacting human...")
-                break
+                repo = create_repo(root_directory)
+                branch_and_pr_name = os.path.splitext(os.path.basename(test_file_path))[0]
+                branch = create_branch(repo, branch_and_pr_name)
+                stage_and_commit(repo, test_file_path, "Making a commit because I need help from a human.")
+                push_to_origin(repo, branch)
+                user_response = input(f"[INPUT NEEDED] I need your help with an error or with a failing test. Please pull the code from the branch {branch.name} and check it out. Once you checked it out, please either let me know how to fix it (or a hint) or fix it yourself.")
+                # call refine with feedback, get the result, parse it to get the code (and set "parsed" to it) and continue with execution
+                attempt_to_resolve_errors = 0
             else:
                 attempt_to_resolve_errors = 0
 

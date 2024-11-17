@@ -34,15 +34,17 @@ def main():
     parser.add_argument('--root_directory', type=str, required=True, help='The root directory of the solution')
     args = parser.parse_args()
 
-    #repo = create_repo(args.root_directory)
-    #branch = create_branch(repo, args.test_file)
-    #checkout_branch(branch)
+    # Create a Git repository object from the root directory path
+    repo = create_repo(args.root_directory)
+    # Get the test file name without extension to use as branch and PR name
+    branch_and_pr_name = os.path.splitext(os.path.basename(args.test_file))[0]
+    # Create a new Git branch with the test file name
+    branch = create_branch(repo, branch_and_pr_name)
+    # Switch to the newly created branch
+    checkout_branch(branch)
 
     testprojectdirectory = os.path.dirname(args.csproj)
 
-
-    # Initialize the optimizer
-        # parse the arguments and log them for debugging
     args = parser.parse_args()
     with open(args.knowledge, 'r') as file:
         knowledge_base_content = file.read()
