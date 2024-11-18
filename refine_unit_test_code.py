@@ -3,14 +3,16 @@ import ell
 # add importds for rewrite_unit_test_file and rewrite_test_project_file
 from tools import rewrite_unit_test_file
 from llm_clients import openai_client_for_openrouter, openai_client
+from format_with_line_numbers import format_code_with_line_numbers
 
 @ell.simple(model="anthropic/claude-3.5-sonnet", max_tokens=8000, client=openai_client_for_openrouter, temperature=0.0)
 def refine_code_based_on_errors(sut: str, test_cases: str, function: str, build_errors: str, additional_information: str, knowledge_base_content: str, test_file_path: str, unit_testing_engine: str, file_contents: list = None, tool_outputs: str = None):
     # I want to format all entries in file_contants in markdown code blocks
     # It should be a formatted string in markdown
+
     formatted_file_contents = ""
     for file_path, file_content in file_contents.items():
-        formatted_file_contents += f"# {file_path}\n```\n{file_content}\n```\n"
+        formatted_file_contents += f"# {file_path}\n\n{format_code_with_line_numbers(file_content)}\n\n"
 
     user_prompt = """
 You are a senior C# developer with expertise in unit approval testing. Your task is to analyze, modify, and improve unit approval test code to resolve build errors and test failures.
@@ -75,9 +77,9 @@ You solely are responsible for eliminating build errors and test failures. Make 
 
 Make sure the unit test class will be in the "Enveritus2.Test" namespace.
 
-<past_actions that are seperated by <, > and commas> 
+<past_actions> 
 {tool_outputs}
-</past_actions that are seperated by <, > and commas>
+</past_actions>
 
 
 You solely are responsible for eliminating build errors and test failures. Make sure to review past actions.

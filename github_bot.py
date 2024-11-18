@@ -49,8 +49,10 @@ def get_random_input():
     user_input = input()
     print(f"You entered: {user_input}")
 
-def get_diffs(repo, amount):
+def get_diffs(repo, amount, file:str):
     commits = list(repo.iter_commits('HEAD', max_count=10))
+    commits = list(repo.iter_commits('HEAD', paths=[file], max_count=amount))
+
     # Iterate through the commits and print their diffs
     diff_list = []
 

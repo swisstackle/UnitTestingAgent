@@ -6,6 +6,7 @@ from parse_refined_unit_tests import parse_refined_unit_tests
 from update_project_file import update_project_file
 from agent_check_past_actions import check_actions
 from github_bot import *
+import os
 
 def stage_and_commit_and_push(root_directory:str, test_file_path, csproj_path):
     repo = create_repo(root_directory)
@@ -39,7 +40,9 @@ def execute_until_build_succeeds(
     build_result = ""
     max_tries = 5
     attempt_to_resolve_errors = 0
+    parsed = None
     
+    repo = create_repo(root_directory)
     while(("All tests passed successfully!" not in build_result) and (attempt_to_resolve_errors <= max_tries)):
         # Execute the build and tests
         build_result = execute_build_and_tests(testprojectdirectory, namespace_and_classname)
@@ -51,7 +54,7 @@ def execute_until_build_succeeds(
             print("Tests failed. Build errors:\n" + build_result)
 
         # Get past 10 diffs so that we can pass it to the refiner so that he doesnt repeat the same solutions all over again.
-        diffs = "\n\n".join(get_diffs(repo, 4))
+        diffs = "\n\n".join(get_diffs(repo, 10, test_file_path))
 
         if(attempt_to_resolve_errors >= max_tries):
             needs_human = check_actions(diffs).parsed.needs_human
@@ -82,9 +85,13 @@ def execute_until_build_succeeds(
 
         for attempt in range(max_retries):
             try:
+                test_cases = unit_tests_first
+                if parsed is not None and hasattr(parsed, 'new_unit_test_code'):
+                    test_cases = parsed.new_unit_test_code
+                
                 unit_tests = refine_code_based_on_errors(
                     sut=sut_content,
-                    test_cases=unit_tests_first if parsed.new_unit_test_code is None else parsed.new_unit_test_code,
+                    test_cases=test_cases,
                     build_errors=build_result,
                     additional_information=additional_information,
                     knowledge_base_content=knowledge_base_content,
