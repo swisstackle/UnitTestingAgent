@@ -49,8 +49,23 @@ def get_random_input():
     user_input = input()
     print(f"You entered: {user_input}")
 
+def get_diffs(repo, amount):
+    commits = list(repo.iter_commits('HEAD', max_count=10))
+    # Iterate through the commits and print their diffs
+    diff_list = []
+
+    for i, commit in enumerate(commits, 1):
+        diff = repo.git.show(commit.hexsha, pretty='', patch=True)
+        diff_list.append(f"# Diff {i}:\n\n```\n{diff}\n```") 
+    return diff_list
+
+
+
+
+
 if __name__ == "__main__":
-    print("This is a test line.")
-    get_random_input()
+    repo = create_repo("C:\\Users\\aschaerer\\Documents\\UnitTestingAgents")
+    print("\n\n".join(get_diffs(repo, 4)))
+    
 
 

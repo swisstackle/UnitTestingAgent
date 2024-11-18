@@ -36,7 +36,6 @@ def execute_until_build_succeeds(
     Args match the original loop's requirements exactly, with some made optional
     for flexibility. The function will continue executing until tests pass successfully.
     """
-    past_actions = []
     build_result = ""
     max_tries = 5
     attempt_to_resolve_errors = 0
@@ -51,8 +50,11 @@ def execute_until_build_succeeds(
         else:
             print("Tests failed. Build errors:\n" + build_result)
 
+        # Get past 10 diffs so that we can pass it to the refiner so that he doesnt repeat the same solutions all over again.
+        diffs = "\n\n".join(get_diffs(repo, 4))
+
         if(attempt_to_resolve_errors >= max_tries):
-            needs_human = check_actions(past_actions).parsed.needs_human
+            needs_human = check_actions(diffs).parsed.needs_human
             if(needs_human):
                 from refiner_with_user_feedback import refine_code_based_on_suggestion
                 # commit and push code
@@ -82,13 +84,13 @@ def execute_until_build_succeeds(
             try:
                 unit_tests = refine_code_based_on_errors(
                     sut=sut_content,
-                    test_cases=unit_tests_first if len(past_actions) == 0 else parsed.new_unit_test_code,
+                    test_cases=unit_tests_first if parsed.new_unit_test_code is None else parsed.new_unit_test_code,
                     build_errors=build_result,
                     additional_information=additional_information,
                     knowledge_base_content=knowledge_base_content,
                     file_contents=file_contents,
                     function=function_name,
-                    tool_outputs=past_actions,
+                    tool_outputs=diffs,
                     test_file_path=test_file_path,
                     unit_testing_engine=unit_testing_engine
                 )
@@ -107,9 +109,6 @@ def execute_until_build_succeeds(
         # Parse the refined unit tests to extract the action taken by the agent
         parsed = parse_refined_unit_tests(unit_tests)
         parsed = parsed.parsed
-        past_actions.append("<" + parsed.action_taken + ">")
-        if(len(past_actions) > 10):
-            past_actions.pop(0)
         
         # Executing the tool calls
         for tool_call in toolsparsed.tool_calls:
