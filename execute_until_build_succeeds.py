@@ -6,7 +6,15 @@ from parse_refined_unit_tests import parse_refined_unit_tests
 from update_project_file import update_project_file
 from agent_check_past_actions import check_actions
 from github_bot import *
-from refiner_with_user_feedback import refine_code_based_on_suggestion
+
+def stage_and_commit_and_push(root_directory:str, test_file_path, csproj_path):
+    repo = create_repo(root_directory)
+    branch_and_pr_name = os.path.splitext(os.path.basename(test_file_path))[0]
+    branch = create_branch(repo, branch_and_pr_name)
+    stage_and_commit(repo, test_file_path, "Making a commit because I need help from a human.")
+    if(csproj_path is not None):
+        stage_and_commit(repo, csproj_path, "Add project file")
+    push_to_origin(repo, branch)
 
 def execute_until_build_succeeds(
     testprojectdirectory,
@@ -46,14 +54,22 @@ def execute_until_build_succeeds(
         if(attempt_to_resolve_errors >= max_tries):
             needs_human = check_actions(past_actions).parsed.needs_human
             if(needs_human):
+                from refiner_with_user_feedback import refine_code_based_on_suggestion
                 # commit and push code
-                repo = create_repo(root_directory)
-                branch_and_pr_name = os.path.splitext(os.path.basename(test_file_path))[0]
-                branch = create_branch(repo, branch_and_pr_name)
-                stage_and_commit(repo, test_file_path, "Making a commit because I need help from a human.")
-                push_to_origin(repo, branch)
+                stage_and_commit_and_push(root_directory, test_file_path, csproj_path)
                 user_response = input(f"[INPUT NEEDED] I need your help with an error or with a failing test. Please pull the code from the branch {branch.name} and check it out. Once you checked it out, please either let me know how to fix it (or a hint) or fix it yourself.")
                 # call refine with feedback, get the result, parse it to get the code (and set "parsed" to it) and continue with execution
+                refined_unparsed = refine_code_based_on_suggestion(sut_content,
+                function_name,
+                additional_information,
+                knowledge_base_content,
+                test_file_path,
+                unit_testing_engine,
+                file_contents,
+                user_response,
+                unit_tests_first)
+                parsed = parse_refined_unit_tests(refined_unparsed)
+                parsed = parsed.parsed
                 attempt_to_resolve_errors = 0
             else:
                 attempt_to_resolve_errors = 0
@@ -98,8 +114,9 @@ def execute_until_build_succeeds(
         # Executing the tool calls
         for tool_call in toolsparsed.tool_calls:
             tool_call()
+
         with open(test_file_path, 'r') as file:
             test_file_content = file.read()
-
         update_project_file(test_file_content, test_file_path, root_directory, csproj_path)
+        stage_and_commit_and_push(root_directory, test_file_path, csproj_path)
         attempt_to_resolve_errors = attempt_to_resolve_errors + 1
