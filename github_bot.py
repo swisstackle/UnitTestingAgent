@@ -58,7 +58,7 @@ def get_diffs(repo, amount, file:str):
 
     for i, commit in enumerate(commits, 1):
         diff = repo.git.show(commit.hexsha, pretty='', patch=True)
-        diff_list.append(f"# Diff {i}:\n\n```\n{diff}\n```") 
+        diff_list.insert(0, f"# Diff {i}:\n\n```\n{diff}\n```") 
     return diff_list
 
 
@@ -66,8 +66,8 @@ def get_diffs(repo, amount, file:str):
 
 
 if __name__ == "__main__":
-    repo = create_repo("C:\\Users\\aschaerer\\Documents\\UnitTestingAgents")
-    print("\n\n".join(get_diffs(repo, 4)))
+    repo = create_repo("C:\\Users\\aschaerer\\Documents\\BPAS-Enveritus2")
+    print("\n\n".join(get_diffs(repo, 4, "C:\\Users\\aschaerer\\Documents\\BPAS-Enveritus2\\Enveritus2\\Services\\SessionService.cs")))
     
 
 

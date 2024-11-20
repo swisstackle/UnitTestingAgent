@@ -7,12 +7,17 @@ import os
 def execute_build_and_tests(test_project_directory: str, test_namespace_and_classname: str):
     test_project_directory = str(Path(test_project_directory).resolve())
     bin_directory = os.path.join(test_project_directory, "bin")
+    obj_directory = os.path.join(test_project_directory, "obj")
+
     if os.path.exists(bin_directory):
         shutil.rmtree(bin_directory)
+
+    if os.path.exists(obj_directory):
+        shutil.rmtree(obj_directory)
     try:
         # Navigate to the test project directory and execute build
         clean_process = subprocess.run(
-            ["dotnet", "clean"],
+            ["dotnet", "clean", "Enveritus2.Test.csproj"],
             cwd=test_project_directory,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -21,7 +26,7 @@ def execute_build_and_tests(test_project_directory: str, test_namespace_and_clas
         )
 
         build_process = subprocess.run(
-            ["dotnet", "build", "-consoleloggerparameters:ErrorsOnly"],
+            ["dotnet", "build", "Enveritus2.Test.csproj", "-consoleloggerparameters:ErrorsOnly"],
             cwd=test_project_directory,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,

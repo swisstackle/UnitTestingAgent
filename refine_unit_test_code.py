@@ -13,6 +13,8 @@ def refine_code_based_on_errors(sut: str, test_cases: str, function: str, build_
     formatted_file_contents = ""
     for file_path, file_content in file_contents.items():
         formatted_file_contents += f"# {file_path}\n\n{format_code_with_line_numbers(file_content)}\n\n"
+    sut = format_code_with_line_numbers(sut)
+    test_cases = format_code_with_line_numbers(test_cases)
 
     user_prompt = """
 You are a senior C# developer with expertise in unit approval testing. Your task is to analyze, modify, and improve unit approval test code to resolve build errors and test failures.

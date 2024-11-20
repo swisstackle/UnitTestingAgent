@@ -12,9 +12,9 @@ def stage_and_commit_and_push(root_directory:str, test_file_path, csproj_path):
     repo = create_repo(root_directory)
     branch_and_pr_name = os.path.splitext(os.path.basename(test_file_path))[0]
     branch = create_branch(repo, branch_and_pr_name)
-    stage_and_commit(repo, test_file_path, "Making a commit because I need help from a human.")
+    stage_and_commit(repo, test_file_path, "Making a commit.")
     if(csproj_path is not None):
-        stage_and_commit(repo, csproj_path, "Add project file")
+        stage_and_commit(repo, csproj_path, "Add or edit project file")
     push_to_origin(repo, branch)
 
 def execute_until_build_succeeds(
