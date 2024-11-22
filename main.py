@@ -32,12 +32,13 @@ def main():
     parser.add_argument('--test_file', type=str, required=True, help='Path where the test file will be created')
     parser.add_argument('--unittestingengine', type=str, required=True, help='The unit testing engine to use', choices=['xunit', 'NUnit'])
     parser.add_argument('--root_directory', type=str, required=True, help='The root directory of the solution')
+    parser.add_argument('--branch', type=str, required=True, help='Name of the branch')
     args = parser.parse_args()
 
     # Create a Git repository object from the root directory path
     repo = create_repo(args.root_directory)
     # Get the test file name without extension to use as branch and PR name
-    branch_and_pr_name = os.path.splitext(os.path.basename(args.test_file))[0]
+    branch_and_pr_name = args.branch
     # Create a new Git branch with the test file name
     branch = create_branch(repo, branch_and_pr_name)
     # Switch to the newly created branch
