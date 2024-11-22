@@ -123,6 +123,6 @@ def execute_until_build_succeeds(
 
         with open(test_file_path, 'r') as file:
             test_file_content = file.read()
-        update_project_file(test_file_content, test_file_path, root_directory, csproj_path)
+        namespace_and_classname = update_project_file(test_file_content, test_file_path, root_directory, csproj_path)
         stage_and_commit_and_push(root_directory, test_file_path, csproj_path)
         attempt_to_resolve_errors = attempt_to_resolve_errors + 1
