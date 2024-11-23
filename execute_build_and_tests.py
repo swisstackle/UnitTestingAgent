@@ -17,7 +17,7 @@ def execute_build_and_tests(test_project_directory: str, test_namespace_and_clas
     try:
         # Navigate to the test project directory and execute build
         clean_process = subprocess.run(
-            ["dotnet", "clean", "Enveritus2.Test.csproj"],
+            ["dotnet", "clean"],
             cwd=test_project_directory,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -26,7 +26,7 @@ def execute_build_and_tests(test_project_directory: str, test_namespace_and_clas
         )
 
         build_process = subprocess.run(
-            ["dotnet", "build", "Enveritus2.Test.csproj", "-consoleloggerparameters:ErrorsOnly"],
+            ["dotnet", "build", "Enveritus2.Test.csproj", "-consoleloggerparameters:ErrorsOnly", "--no-incremental"],
             cwd=test_project_directory,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -67,7 +67,7 @@ def execute_build_and_tests(test_project_directory: str, test_namespace_and_clas
             command = [
                 "dotnet", "test",
                 "--filter", f"FullyQualifiedName={test_method}",
-                "--no-restore", "--no-build",
+                "--no-build",
                 "--verbosity", "normal",
                 "--logger", "console;verbosity=normal"
             ]
@@ -124,7 +124,7 @@ def execute_build_and_tests(test_project_directory: str, test_namespace_and_clas
 # Main execution block outside of the try-except
 if __name__ == "__main__":
     test_project_directory = r"C:\Users\aschaerer\Documents\BPAS-Enveritus2\Enveritus2.Test"
-    test_namespace_and_classname = "Enveritus2.Test.OnDocument.IndexModelTests"
+    test_namespace_and_classname = "Enveritus2.Test.SessionServiceTests"
     
     result = execute_build_and_tests(test_project_directory, test_namespace_and_classname)
     print(result)
