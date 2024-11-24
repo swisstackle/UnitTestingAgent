@@ -4,7 +4,7 @@ from execute_until_build_succeeds import execute_until_build_succeeds
 from tools import rewrite_unit_test_file
 from llm_clients import openai_client_for_openrouter, openai_client
 import ell
-from refine_unit_test_code import parse_function_calls
+from refine_unit_test_code import parse_function_calls_until_success
 import os
 
 @ell.simple(model="anthropic/claude-3.5-sonnet", max_tokens=8000, client=openai_client_for_openrouter, temperature=0.0)
@@ -200,7 +200,7 @@ def main():
         )
 
         # Parse the suggestion implementation result
-        toolsparsed = parse_function_calls(suggestion_result, args.test_file)
+        toolsparsed = parse_function_calls_until_success(suggestion_result, args.test_file)
         
         # Apply the suggested changes
         for tool_call in toolsparsed.tool_calls:

@@ -35,14 +35,14 @@ Please review the following information carefully:
 {build_errors}
 </failed_tests or build_errors>
 
-You solely are responsible for eliminating build errors and test failures. Make sure to review past actions.
+You solely are responsible for eliminating build errors and test failures. Make sure to review past actions. Use the line numbers to locate errors.
 Make sure the unit test class will be in the "Enveritus2.Test" namespace.
 
 <function_under_test>
 {function}
 </function_under_test>
 
-You solely are responsible for eliminating build errors and test failures. Make sure to review past actions.
+You solely are responsible for eliminating build errors and test failures. Make sure to review past actions.Use the line numbers to locate errors.
 
 Make sure the unit test class will be in the "Enveritus2.Test" namespace.
 
@@ -50,7 +50,7 @@ Make sure the unit test class will be in the "Enveritus2.Test" namespace.
 {sut}
 </system_under_test>
 
-You solely are responsible for eliminating build errors and test failures. Make sure to review past actions.
+You solely are responsible for eliminating build errors and test failures. Make sure to review past actions. Use the line numbers to locate errors.
 
 Make sure the unit test class will be in the "Enveritus2.Test" namespace.
 
@@ -59,7 +59,7 @@ Make sure the unit test class will be in the "Enveritus2.Test" namespace.
 </test_file_path>
 
 
-You solely are responsible for eliminating build errors and test failures. Make sure to review past actions.
+You solely are responsible for eliminating build errors and test failures. Make sure to review past actions. Use the line numbers to locate errors.
 
 Make sure the unit test class will be in the "Enveritus2.Test" namespace.
 
@@ -67,7 +67,7 @@ Make sure the unit test class will be in the "Enveritus2.Test" namespace.
 {additional_information}
 </additional_info>
 
-You solely are responsible for eliminating build errors and test failures. Make sure to review past actions.
+You solely are responsible for eliminating build errors and test failures. Make sure to review past actions. Use the line numbers to locate errors.
 
 Make sure the unit test class will be in the "Enveritus2.Test" namespace.
 
@@ -75,7 +75,7 @@ Make sure the unit test class will be in the "Enveritus2.Test" namespace.
 {knowledge_base_content}
 </knowledge_base>
 
-You solely are responsible for eliminating build errors and test failures. Make sure to review past actions.
+You solely are responsible for eliminating build errors and test failures. Make sure to review past actions. Use the line numbers to locate errors.
 
 Make sure the unit test class will be in the "Enveritus2.Test" namespace.
 
@@ -84,7 +84,7 @@ Make sure the unit test class will be in the "Enveritus2.Test" namespace.
 </past_actions>
 
 
-You solely are responsible for eliminating build errors and test failures. Make sure to review past actions.
+You solely are responsible for eliminating build errors and test failures. Make sure to review past actions. Use the line numbers to locate errors.
 
 Now, analyze the situation and plan any necessary changes. Wrap your analysis inside <test_code_analysis> tags:
 
@@ -146,7 +146,7 @@ Present your final unit test code in the following format:
 
 Remember to rigorously follow the program logic and the knowledge base, and avoid repeating any past actions listed above. Ensure that you provide the complete code.
 
-You solely are responsible for eliminating build errors and test failures. Make sure to review past actions.
+You solely are responsible for eliminating build errors and test failures. Make sure to review past actions. Use the line numbers to locate errors.
     """.format(
         knowledge_base_content=knowledge_base_content,
         test_file_path=test_file_path,
@@ -179,4 +179,14 @@ def parse_function_calls(reasoningoutput:str, unit_test_path:str):
     # Unit Test Path:
     {unit_test_path}
     """
+
+def parse_function_calls_until_success(reasoningoutput:str, unit_test_path:str, max_retries=5):
+   try:
+       parsed = parse_function_calls(reasoningoutput, unit_test_path)
+       return parsed
+   except ValidationError as e:
+       print(f"Attempt {attempt + 1} failed due to validation error: {str(e)}")
+       if attempt < max_retries - 1:
+         raise
+
    
