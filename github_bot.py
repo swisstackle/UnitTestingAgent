@@ -3,9 +3,10 @@ from github import Github
 from github import Auth
 from git import Repo
 import random
+import os
 
 def create_repo(root_directory):
-    return Repo(root_directory)
+    return Repo(os.path.abspath(root_directory))
 
 def create_branch(repo, branchname):
     # First replace backslashes with forward slashes for consistency
@@ -27,19 +28,30 @@ def stage_and_commit(repo, filenames : list[str], commitmessage : str):
     repo.index.add(filenames)
     repo.index.commit(commitmessage)
 
-def push_to_origin(repo, branch):
-    origin = repo.remote(name='origin')
-    origin.push([branch.name], set_upstream=True)
+def push_to_origin(repo, branch, max_retries=3):
+    for attempt in range(max_retries):
+        try:
+            origin = repo.remote(name='origin')
+            origin.push([branch.name], set_upstream=True)
+            return  # Success, exit the function
+        except Exception as e:
+            if attempt == max_retries - 1:  # Last attempt
+                raise  # Re-raise the exception if all retries failed
 
-def create_pr(title, description, head, base, repo):
-    auth = Auth.Token("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")
-    g = Github(auth=auth)
-
-    head = head.replace('\\', '/')
-    repo = g.get_repo(repo)
-    pr = repo.create_pull(base=base, head=head, title=title, body=description)
-    g.close()
-
+def create_pr(title, description, head, base, repo, max_retries=3):
+    for attempt in range(max_retries):
+        try:
+            auth = Auth.Token("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")
+            g = Github(auth=auth)
+            head = head.replace('\\', '/')
+            github_repo = g.get_repo(repo)
+            pr = github_repo.create_pull(base=base, head=head, title=title, body=description)
+            g.close()
+            return pr
+        except Exception as e:
+            g.close()  # Close the connection before retry
+            if attempt == max_retries - 1:  # Last attempt
+                raise  # Re-raise the exception if all retries failed
 
 def create_pr_to_master_on_lean(title, description, head):
     create_pr(title, description, head, "master", "swisstackle/Lean")
