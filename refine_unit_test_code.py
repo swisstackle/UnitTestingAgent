@@ -16,6 +16,8 @@ def refine_code_based_on_errors(sut: str, test_cases: str, function: str, build_
     sut = format_code_with_line_numbers(sut)
     test_cases = format_code_with_line_numbers(test_cases)
 
+    repeated = "You solely are responsible for eliminating build errors and test failures. Make sure to review past actions. Use the line numbers to locate errors and reference the line number where the error occurs. Make sure the unit test class will be in the \"Enveritus2.Test\" namespace."
+
     user_prompt = """
 You are a senior C# developer with expertise in unit approval testing. Your task is to analyze, modify, and improve unit approval test code to resolve build errors and test failures.
 However, adding or removing test cases is not in the scope. You solely are responsible for eliminating build errors and test failures.
@@ -35,56 +37,44 @@ Please review the following information carefully:
 {build_errors}
 </failed_tests or build_errors>
 
-You solely are responsible for eliminating build errors and test failures. Make sure to review past actions. Use the line numbers to locate errors.
-Make sure the unit test class will be in the "Enveritus2.Test" namespace.
+{repeated}
 
 <function_under_test>
 {function}
 </function_under_test>
 
-You solely are responsible for eliminating build errors and test failures. Make sure to review past actions.Use the line numbers to locate errors.
-
-Make sure the unit test class will be in the "Enveritus2.Test" namespace.
+{repeated}
 
 <system_under_test>
 {sut}
 </system_under_test>
 
-You solely are responsible for eliminating build errors and test failures. Make sure to review past actions. Use the line numbers to locate errors.
-
-Make sure the unit test class will be in the "Enveritus2.Test" namespace.
+{repeated}
 
 <test_file_path>
 {test_file_path}
 </test_file_path>
 
-
-You solely are responsible for eliminating build errors and test failures. Make sure to review past actions. Use the line numbers to locate errors.
-
-Make sure the unit test class will be in the "Enveritus2.Test" namespace.
+{repeated}
 
 <additional_info>
 {additional_information}
 </additional_info>
 
-You solely are responsible for eliminating build errors and test failures. Make sure to review past actions. Use the line numbers to locate errors.
-
-Make sure the unit test class will be in the "Enveritus2.Test" namespace.
+{repeated}
 
 <knowledge_base>
 {knowledge_base_content}
 </knowledge_base>
 
-You solely are responsible for eliminating build errors and test failures. Make sure to review past actions. Use the line numbers to locate errors.
-
-Make sure the unit test class will be in the "Enveritus2.Test" namespace.
+{repeated}
 
 <past_actions> 
 {tool_outputs}
 </past_actions>
 
 
-You solely are responsible for eliminating build errors and test failures. Make sure to review past actions. Use the line numbers to locate errors.
+{repeated}
 
 Now, analyze the situation and plan any necessary changes. Wrap your analysis inside <test_code_analysis> tags:
 
@@ -94,6 +84,7 @@ Now, analyze the situation and plan any necessary changes. Wrap your analysis in
    - Categorize errors (e.g., syntax, reference, compilation).
    - Identify any patterns or similarities in the errors.
    - Count the total number of errors.
+   - List the file and line number where the error occurs.
 
 2. Review the function under test and its relationship to the unit test code:
    - Map each unit test to the corresponding part of the function under test.
@@ -146,7 +137,7 @@ Present your final unit test code in the following format:
 
 Remember to rigorously follow the program logic and the knowledge base, and avoid repeating any past actions listed above. Ensure that you provide the complete code.
 
-You solely are responsible for eliminating build errors and test failures. Make sure to review past actions. Use the line numbers to locate errors.
+{repeated}
     """.format(
         knowledge_base_content=knowledge_base_content,
         test_file_path=test_file_path,
@@ -157,7 +148,8 @@ You solely are responsible for eliminating build errors and test failures. Make 
         additional_information=additional_information,
         formatted_file_contents=formatted_file_contents,
         tool_outputs=tool_outputs,
-        unit_testing_engine=unit_testing_engine
+        unit_testing_engine=unit_testing_engine,
+        repeated=repeated
     )
     if not build_errors.strip():
         return [
