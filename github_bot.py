@@ -70,7 +70,7 @@ def get_diffs(repo, amount, file:str):
 
     for i, commit in enumerate(commits, 1):
         diff = repo.git.show(commit.hexsha, pretty='', patch=True)
-        diff_list.insert(0, f"# Diff {i}:\n\n```\n{diff}\n```") 
+        diff_list.append(f"# Diff {len(commits) - i}:\n\n```\n{diff}\n```") 
     return diff_list
 
 

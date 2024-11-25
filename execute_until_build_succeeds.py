@@ -62,7 +62,7 @@ def execute_until_build_succeeds(
                 from refiner_with_user_feedback import refine_code_based_on_suggestion
                 # commit and push code
                 stage_and_commit_and_push(root_directory, test_file_path, csproj_path)
-                user_response = input(f"[INPUT NEEDED] I need your help with an error or with a failing test. Please pull the code from the branch {branch.name} and check it out. Once you checked it out, please either let me know how to fix it (or a hint) or fix it yourself.")
+                user_response = input(f"[INPUT NEEDED] I need your help with an error or with a failing test. Please pull the code and check it out. Once you checked it out, please either let me know how to fix it (or a hint) or fix it yourself.")
                 # call refine with feedback, get the result, parse it to get the code (and set "parsed" to it) and continue with execution
                 refined_unparsed = refine_code_based_on_suggestion(sut_content,
                 function_name,
