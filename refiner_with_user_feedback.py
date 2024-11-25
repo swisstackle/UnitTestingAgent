@@ -15,6 +15,8 @@ def refine_code_based_on_suggestion(sut: str, function: str, additional_informat
     for file_path, file_content in file_contents.items():
         formatted_file_contents += f"# {file_path}\n```\n{file_content}\n```\n"
 
+    repeated = "You solely are responsible for implementing the suggestion. Change NOTHING else. Don't remove any test cases. Make sure the unit test class will be in the \"Enveritus2.Test\" namespace." 
+
     user_prompt = """
 You are a senior C# developer with expertise in unit approval testing. Your task is to implement a suggestion from a real human senior software developer.
 You are a test after development developer, which means that you have to adjust the unit test code so that the tests pass. This is also called "approval testing."
@@ -33,44 +35,37 @@ Please review the following information carefully:
 {test_cases_code}
 </unit_test_code>
 
-You solely are responsible for implementing the suggestion. Do NOTHING else.
-Make sure the unit test class will be in the "Enveritus2.Test" namespace.
+
 
 <function_under_test>
 {function}
 </function_under_test>
 
-You solely are responsible for implementing the suggestion. Do NOTHING else.
-Make sure the unit test class will be in the "Enveritus2.Test" namespace.
+{repeated}
 
 <system_under_test>
 {sut}
 </system_under_test>
 
-You solely are responsible for implementing the suggestion. Do NOTHING else.
-Make sure the unit test class will be in the "Enveritus2.Test" namespace.
+{repeated}
 
 <test_file_path>
 {test_file_path}
 </test_file_path>
 
-
-You solely are responsible for implementing the suggestion. Do NOTHING else.
-Make sure the unit test class will be in the "Enveritus2.Test" namespace.
+{repeated}
 
 <additional_info>
 {additional_information}
 </additional_info>
 
-You solely are responsible for implementing the suggestion. Do NOTHING else.
-Make sure the unit test class will be in the "Enveritus2.Test" namespace.
+{repeated}
 
 <knowledge_base>
 {knowledge_base_content}
 </knowledge_base>
 
-You solely are responsible for implementing the suggestion. Do NOTHING else.
-Make sure the unit test class will be in the "Enveritus2.Test" namespace.
+{repeated}
 
 
 Now, analyze the situation and plan any necessary changes. Wrap your analysis inside <test_code_analysis> tags:
@@ -126,8 +121,8 @@ Present your final unit test code in the following format:
 
 Remember to rigorously follow the program logic and the knowledge base. Ensure that you provide the complete code.
 
-You solely are responsible for implementing the suggestion. Do NOTHING else.
-Make sure the unit test class will be in the "Enveritus2.Test" namespace.
+{repeated}
+
     """.format(
         knowledge_base_content=knowledge_base_content,
         test_file_path=test_file_path,
@@ -137,7 +132,8 @@ Make sure the unit test class will be in the "Enveritus2.Test" namespace.
         formatted_file_contents=formatted_file_contents,
         unit_testing_engine=unit_testing_engine,
         suggestion_from_developer=suggestion_from_developer,
-        test_cases_code=test_cases_code
+        test_cases_code=test_cases_code,
+        repeated=repeated
     )
     return [
         ell.user(user_prompt)
