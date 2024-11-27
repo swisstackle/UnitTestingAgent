@@ -15,7 +15,7 @@ def refine_code_based_on_suggestion(sut: str, function: str, additional_informat
     for file_path, file_content in file_contents.items():
         formatted_file_contents += f"# {file_path}\n```\n{file_content}\n```\n"
 
-    repeated = "You solely are responsible for implementing the suggestion. Change NOTHING else. Don't remove any test cases. Make sure the unit test class will be in the \"Enveritus2.Test\" namespace." 
+    repeated = "You solely are responsible for implementing the suggestion. Change NOTHING else. Don't remove any test cases unless explicitly told to. Make sure the unit test class will be in the \"Enveritus2.Test\" namespace." 
 
     user_prompt = """
 You are a senior C# developer with expertise in unit approval testing. Your task is to implement a suggestion from a real human senior software developer.

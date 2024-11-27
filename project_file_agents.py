@@ -1,9 +1,9 @@
 import ell
 from tools import rewrite_test_project_file
-from llm_clients import openai_client
+from llm_clients import openai_client_for_openrouter
 import os
 
-@ell.complex(client=openai_client, model="gpt-4o-mini", temperature=0.0, tools=[rewrite_test_project_file])
+@ell.complex(client=openai_client_for_openrouter, model="openai/gpt-4o-mini-2024-07-18", temperature=0.0, tools=[rewrite_test_project_file])
 def add_project_references(test_project_file_path: str, project_paths_to_add_to_references: list[str]):
     """
     Your only responsibility is to add project references to the csproj test project file that are given to you.

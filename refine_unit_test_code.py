@@ -151,6 +151,9 @@ Remember to rigorously follow the program logic and the knowledge base, and avoi
         unit_testing_engine=unit_testing_engine,
         repeated=repeated
     )
+    # Append user prompt to file "promptlog.txt"
+    with open("promptlog.txt", "a") as f:
+        f.write(user_prompt + "\n\n\n")
     if not build_errors.strip():
         return [
             ell.user("Build and Tests Executed Successfully")
@@ -160,7 +163,7 @@ Remember to rigorously follow the program logic and the knowledge base, and avoi
     ]
 
 
-@ell.complex(model="openai/gpt-4o-mini", temperature=0.0, client=openai_client, tools=[rewrite_unit_test_file])
+@ell.complex(model="openai/gpt-4o-mini-2024-07-18", temperature=0.0, client=openai_client_for_openrouter, tools=[rewrite_unit_test_file])
 def parse_function_calls(reasoningoutput:str, unit_test_path:str):
     """
     Your only responsibility is to parse the reasoning output of the LLM and return the function calls that are needed.
