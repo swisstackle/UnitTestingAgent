@@ -67,7 +67,7 @@ def get_diffs(repo, amount, file:str):
     # Iterate through the commits and print their diffs
     diff_list = []
 
-    for i, commit in enumerate(commits, 1):
+    for i, commit in enumerate(commits, 0):
         diff = repo.git.show(commit.hexsha, pretty='', patch=True)
         diff_list.append(f"# Diff {len(commits) - i}:\n\n```\n{diff}\n```") 
     return diff_list
@@ -77,8 +77,8 @@ def get_diffs(repo, amount, file:str):
 
 
 if __name__ == "__main__":
-    repo = create_repo("C:\\Users\\aschaerer\\Documents\\BPAS-Enveritus2")
-    print("\n\n".join(get_diffs(repo, 4, "C:\\Users\\aschaerer\\Documents\\BPAS-Enveritus2\\Enveritus2\\Services\\SessionService.cs")))
+    repo = create_repo("/home/alains/Work/BPAS-Enveritus2")
+    print("\n\n".join(get_diffs(repo, 10, "/home/alains/Work/BPAS-Enveritus2/Enveritus2.Test/Login/UI/DefaultLoginTests")))
     
 
 

@@ -2,7 +2,6 @@ from pydantic import ValidationError
 import time
 from refine_unit_test_code import refine_code_based_on_errors, parse_function_calls_until_success
 from execute_build_and_tests import execute_build_and_tests
-from parse_refined_unit_tests import parse_refined_unit_tests
 from update_project_file import update_project_file
 from agent_check_past_actions import check_actions
 from github_bot import *
@@ -73,10 +72,11 @@ def execute_until_build_succeeds(
                 file_contents,
                 user_response,
                 unit_tests_first)
-                parsed = parse_refined_unit_tests(refined_unparsed)
-                parsed = parsed.parsed
-                attempt_to_resolve_errors = 0
-            else:
+                # Getting the tool calls from the refined unit tests
+                toolsparsed = parse_function_calls_until_success(unit_tests, test_file_path)
+                # Executing the tool calls
+                for tool_call in toolsparsed.tool_calls:
+                    tool_call()
                 attempt_to_resolve_errors = 0
 
         # Generate unit tests
@@ -113,9 +113,6 @@ def execute_until_build_succeeds(
 
         # Getting the tool calls from the refined unit tests
         toolsparsed = parse_function_calls_until_success(unit_tests, test_file_path)
-        # Parse the refined unit tests to extract the action taken by the agent
-        parsed = parse_refined_unit_tests(unit_tests)
-        parsed = parsed.parsed
         
         # Executing the tool calls
         for tool_call in toolsparsed.tool_calls:
