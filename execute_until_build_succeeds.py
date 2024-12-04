@@ -6,6 +6,8 @@ from update_project_file import update_project_file
 from agent_check_past_actions import check_actions
 from github_bot import *
 import os
+import VectorStore
+from parse_error_resolvements import parse_error_resolvements
 
 def stage_and_commit_and_push(root_directory:str, test_file_path, csproj_path):
     repo = create_repo(root_directory)
@@ -40,7 +42,7 @@ def execute_until_build_succeeds(
     max_tries = 5
     attempt_to_resolve_errors = 0
     parsed = None
-    
+
     repo = create_repo(root_directory)
     while(("All tests passed successfully!" not in build_result) and (attempt_to_resolve_errors <= max_tries)):
         # Execute the build and tests
@@ -113,7 +115,7 @@ def execute_until_build_succeeds(
 
         # Getting the tool calls from the refined unit tests
         toolsparsed = parse_function_calls_until_success(unit_tests, test_file_path)
-        
+
         # Executing the tool calls
         for tool_call in toolsparsed.tool_calls:
             tool_call()
@@ -122,4 +124,13 @@ def execute_until_build_succeeds(
             test_file_content = file.read()
         namespace_and_classname = update_project_file(test_file_content, test_file_path, root_directory, csproj_path)
         stage_and_commit_and_push(root_directory, test_file_path, csproj_path)
+        diffs = "\n\n".join(get_diffs(repo, 1, test_file_path))
+        if(diffs.strip()):
+            parse_errors_and_diffs = parse_error_resolvements(build_result, diffs).parsed
+            if(parse_errors_and_diffs.key_value_pairs):
+                vector_store = VectorStore.from_dict_json_file("memories.json")
+                for key, value in parse_errors_and_diffs.key_value_pairs.items():
+                    vector_store.add_memory_dict_inmemory(key, value)
+                vector_store.save_dict_to_json("memories.json")
+
         attempt_to_resolve_errors = attempt_to_resolve_errors + 1

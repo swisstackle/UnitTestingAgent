@@ -4,6 +4,24 @@ import ell
 from tools import rewrite_unit_test_file
 from llm_clients import openai_client_for_openrouter, openai_client
 from format_with_line_numbers import format_code_with_line_numbers
+from VectorStore import VectorStore
+from pydantic import BaseModel, Field
+from typing import List
+
+class BuildErrors(BaseModel):
+    builderrors: list[str] = Field(description="the list of build errors with their error code and description. Do not include the stacktrace.")
+
+
+@ell.complex(model="openai/gpt-4o-mini", max_tokens=8000, client=openai_client_for_openrouter, temperature=0.0, response_format=BuildErrors)
+def split_up_build_errors(build_errors: str) -> BuildErrors:
+    """
+        You are an agent who's responsibility it is to take in a string of build errors and split them up into their respective error codes and descriptions.
+    """
+
+    return f"""
+        Here are the build errors:
+        {build_errors}
+    """
 
 @ell.simple(model="anthropic/claude-3.5-sonnet", max_tokens=8000, client=openai_client_for_openrouter, temperature=0.0)
 def refine_code_based_on_errors(sut: str, test_cases: str, function: str, build_errors: str, additional_information: str, knowledge_base_content: str, test_file_path: str, unit_testing_engine: str, file_contents: list = None, tool_outputs: str = None):
@@ -15,6 +33,16 @@ def refine_code_based_on_errors(sut: str, test_cases: str, function: str, build_
         formatted_file_contents += f"# {file_path}\n\n{format_code_with_line_numbers(file_content)}\n\n"
     sut = format_code_with_line_numbers(sut)
     test_cases = format_code_with_line_numbers(test_cases)
+
+    vector_store = VectorStore.from_dict_json_file("memories.json")
+
+    build_error_list = split_up_build_errors(build_errors).parsed 
+    memories = ""
+    for error in build_error_list:
+        results = vector_store.search_dict(error)
+        for result in results:
+            if(result["relevan"] < 0.5):
+                memories += f"# {error}:\n  Possible Solution: " + str(result["Value"]) + "\n\n"
 
     repeated = "You solely are responsible for eliminating build errors and test failures. Make sure to review past actions. Use the line numbers to locate errors and reference the line number where the error occurs. Make sure the unit test class will be in the \"Enveritus2.Test\" namespace."
 
@@ -64,7 +92,15 @@ Please review the following information carefully:
 {repeated}
 
 <knowledge_base>
+
+<general knowledge passed by the senior software developer>
 {knowledge_base_content}
+</general knowledge passed by the senior software developer>
+
+<your own memories from the vector database on how to potentially solve the errors>
+{memories}
+</your own memories from the vector database on how to potentially solve the errors>
+
 </knowledge_base>
 
 {repeated}
@@ -149,7 +185,8 @@ Remember to rigorously follow the program logic and the knowledge base, and avoi
         formatted_file_contents=formatted_file_contents,
         tool_outputs=tool_outputs,
         unit_testing_engine=unit_testing_engine,
-        repeated=repeated
+        repeated=repeated,
+        memories=memories
     )
     # Append user prompt to file "promptlog.txt"
     with open("promptlog.txt", "a") as f:
@@ -183,5 +220,3 @@ def parse_function_calls_until_success(reasoningoutput:str, unit_test_path:str, 
        print(f"Attempt {attempt + 1} failed due to validation error: {str(e)}")
        if attempt < max_retries - 1:
          raise
-
-   

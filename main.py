@@ -109,8 +109,6 @@ def main():
             test_file_content = file.read()
 
         namespace_and_classname = update_project_file(test_file_content, args.test_file, args.root_directory, args.csproj)
-        
-
     else:
         raise Exception("Unit test code was not generated correctly. Please try again.")
 
