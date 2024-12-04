@@ -36,12 +36,12 @@ def refine_code_based_on_errors(sut: str, test_cases: str, function: str, build_
 
     vector_store = VectorStore.from_dict_json_file("memories.json")
 
-    build_error_list = split_up_build_errors(build_errors).parsed 
+    build_error_list = split_up_build_errors(build_errors).parsed.builderrors
     memories = ""
     for error in build_error_list:
         results = vector_store.search_dict(error)
         for result in results:
-            if(result["relevan"] < 0.5):
+            if(result["relevan"] > 0.5):
                 memories += f"# {error}:\n  Possible Solution: " + str(result["Value"]) + "\n\n"
 
     repeated = "You solely are responsible for eliminating build errors and test failures. Make sure to review past actions. Use the line numbers to locate errors and reference the line number where the error occurs. Make sure the unit test class will be in the \"Enveritus2.Test\" namespace."

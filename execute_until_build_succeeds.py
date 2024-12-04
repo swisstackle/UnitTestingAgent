@@ -6,7 +6,7 @@ from update_project_file import update_project_file
 from agent_check_past_actions import check_actions
 from github_bot import *
 import os
-import VectorStore
+from VectorStore import VectorStore
 from parse_error_resolvements import parse_error_resolvements
 
 def stage_and_commit_and_push(root_directory:str, test_file_path, csproj_path):
@@ -129,8 +129,8 @@ def execute_until_build_succeeds(
             parse_errors_and_diffs = parse_error_resolvements(build_result, diffs).parsed
             if(parse_errors_and_diffs.key_value_pairs):
                 vector_store = VectorStore.from_dict_json_file("memories.json")
-                for key, value in parse_errors_and_diffs.key_value_pairs.items():
-                    vector_store.add_memory_dict_inmemory(key, value)
+                for errorPair in parse_errors_and_diffs.key_value_pairs:
+                    vector_store.add_memory_dict_inmemory(errorPair.error_type, errorPair.solution)
                 vector_store.save_dict_to_json("memories.json")
 
         attempt_to_resolve_errors = attempt_to_resolve_errors + 1

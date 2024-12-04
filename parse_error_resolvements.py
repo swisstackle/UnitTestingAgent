@@ -3,14 +3,18 @@ from pydantic import BaseModel, Field
 from llm_clients import openai_client_for_openrouter
 from typing import List, Tuple
 
-class KeyValuePairs(BaseModel):
-    key_value_pairs:List[Tuple[str, str]]  = Field(description="A list of key value pairs that will be added to a dictionary. The key should be the error type and the value should be the solution to the error.")
+class ErrorPair(BaseModel):
+    error_type:str = Field(description="The error type")
+    solution:str = Field(description="The solution to the error")
 
+class KeyValuePairs(BaseModel):
+    key_value_pairs:List[ErrorPair]  = Field(description="A list of key value pairs that will be added to a dictionary. The key should be the error type and the value should be the solution to the error.")
 
 @ell.complex(model="openai/gpt-4o-mini", client=openai_client_for_openrouter, temperature=0.0, response_format=KeyValuePairs, seed=42)
 def parse_error_resolvements(result_from_execute_build_and_tests: str, last_diff:str) -> KeyValuePairs:
     """
         You are an agent responsible to parse build errors and extrapolate the different error types and the solutions for them and return them.
+        Make sure to not miss any details in the solution.
     """
 
     return """
