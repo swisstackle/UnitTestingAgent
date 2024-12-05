@@ -1,5 +1,5 @@
 import ell
-from ell import Field
+from pydantic import Field
 from pathlib import Path
 from install_libs import install_nuget_package
 

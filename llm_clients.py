@@ -12,12 +12,19 @@ openai_client = Client(
     base_url="https://api.model.box/v1",
 )
 
+# Custom API endpoint for model.box service
+openai_client_for_openrouter = Client(
+    api_key="",
+    base_url="https://openrouter.ai/api/v1",
+)
+
+
+
 topology_client = Client(
   api_key="",
   base_url="https://topologychat.com/api",
 )
 
 anthropic_client = Anthropic(
-  api_key=MODALBOX_API_KEY,
-  base_url="https://api.model.box/v1",
+  api_key=""
 )

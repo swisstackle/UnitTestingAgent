@@ -1,6 +1,7 @@
 import re
 import subprocess
 import os
+import sys
 import xml.etree.ElementTree as ET
 from typing import List, Dict, Union
 
@@ -8,11 +9,17 @@ def test_project_reference_checker(
     project_file_path: str,
     project_name: str
 ):
-    project_file_path = project_file_path.replace('/', '\\')
+    project_file_path = os.path.normpath(project_file_path)
     # Before running the command, check if the project file exists
     if not os.path.exists(project_file_path):
         return f"Error: The project file '{project_file_path}' does not exist."
-    command = f"dotnet list {project_file_path} reference | Select-String \"{project_name}\""
+    
+    # Use different commands based on OS
+    if sys.platform.startswith('win'):
+        command = f"dotnet list {project_file_path} reference | Select-String \"{project_name}\""
+    else:
+        command = f"dotnet list {project_file_path} reference | grep \"{project_name}\""
+    
     result = subprocess.run(command, shell=True, capture_output=True, text=True)
     return project_name in result.stdout
 
@@ -20,10 +27,12 @@ def test_project_reference_checker(
 # It's crucial for identifying all available projects in the solution, which is necessary for accurate reference matching.
 def scan_csproj_files(root_directory):
     project_dict = {}
+    root_directory = os.path.normpath(root_directory)
+    
     for root, _, files in os.walk(root_directory):
         for file in files:
             if file.endswith('.csproj'):
-                full_path = os.path.join(root, file)
+                full_path = os.path.normpath(os.path.join(root, file))
                 project_name = os.path.splitext(file)[0]
                 if project_name in project_dict:
                     if isinstance(project_dict[project_name], list):
@@ -54,7 +63,7 @@ def find_matching_projects(namespace, project_dict):
         potential_project = '.'.join(parts[:i])
         if potential_project in project_dict.keys():
             matching_projects.append(potential_project)
-            break;
+            break
     
     return matching_projects
 
@@ -62,6 +71,7 @@ def find_matching_projects(namespace, project_dict):
 # It's the core of the reference detection process, identifying which projects are used in the file
 # while excluding self-references and references to parent projects.
 def analyze_cs_file(cs_file_path, project_dict):
+    cs_file_path = os.path.normpath(cs_file_path)
     with open(cs_file_path, 'r') as file:
         content = file.read()
     
@@ -89,15 +99,17 @@ def resolve_project_references(matched_projects, project_dict):
     for project in matched_projects:
         paths = project_dict[project]
         if isinstance(paths, list):
-            referenced_projects.extend(paths)
+            referenced_projects.extend([os.path.normpath(p) for p in paths])
         else:
-            referenced_projects.append(paths)
+            referenced_projects.append(os.path.normpath(paths))
     return referenced_projects
 
 # This is the main function that orchestrates the entire process of finding project references.
 # It ties together all the other functions to provide a complete solution for identifying
 # which projects need to be referenced based on the content of a given C# file.
 def get_project_references(cs_file_path, root_directory):
+    cs_file_path = os.path.normpath(cs_file_path)
+    root_directory = os.path.normpath(root_directory)
     project_dict = scan_csproj_files(root_directory)
     matched_projects = analyze_cs_file(cs_file_path, project_dict)
     return resolve_project_references(matched_projects, project_dict)
@@ -116,6 +128,10 @@ def find_unreferenced_csproj_files(primary_csproj_path: str, test_csproj_paths: 
     Returns:
         List[str]: List of test .csproj file paths (relative to the primary project directory) that are not referenced.
     """
+    # Normalize all paths
+    primary_csproj_path = os.path.normpath(primary_csproj_path)
+    test_csproj_paths = [os.path.normpath(path) for path in test_csproj_paths]
+    
     # Extract the directory of the primary .csproj file
     primary_dir = os.path.dirname(os.path.abspath(primary_csproj_path))
 
@@ -146,8 +162,12 @@ def find_unreferenced_csproj_files(primary_csproj_path: str, test_csproj_paths: 
     unreferenced_absolute = test_absolute_paths - existing_references
 
     # Convert unreferenced absolute paths to relative paths
+    
+    # Convert unreferenced absolute paths to relative paths
     unreferenced_relative = [
         os.path.relpath(path, primary_dir) for path in unreferenced_absolute
     ]
 
-    return unreferenced_relative
+    # Normalize all paths in the result
+    return [os.path.normpath(path) for path in unreferenced_relative]
+
