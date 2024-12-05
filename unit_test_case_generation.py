@@ -1,5 +1,5 @@
 import ell
-from llm_clients import openai_client, openai_client_for_openrouter
+from llm_clients import openai_client_for_openrouter
 
 @ell.simple(model="openai/gpt-4o-mini-2024-07-18", client=openai_client_for_openrouter, temperature=0.0, seed=42)
 def unit_test_case_generation(sut: str, function: str, knowledge_base_content: str, additional_information: str, test_project_file: str, file_contents: list = None):

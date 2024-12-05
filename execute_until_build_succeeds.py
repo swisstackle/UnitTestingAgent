@@ -4,7 +4,7 @@ from refine_unit_test_code import refine_code_based_on_errors, parse_function_ca
 from execute_build_and_tests import execute_build_and_tests
 from update_project_file import update_project_file
 from agent_check_past_actions import check_actions
-from github_bot import *
+from github_bot import create_repo, create_branch, stage_and_commit, push_to_origin, get_diffs
 import os
 from VectorStore import VectorStore
 from parse_error_resolvements import parse_error_resolvements

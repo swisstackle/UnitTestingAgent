@@ -13,7 +13,7 @@ from llm_clients import openai_client, openai_client_for_openrouter
 from unit_test_case_generation import unit_test_case_generation
 from build_unit_tests import build_unit_tests
 from execute_build_and_tests import execute_build_and_tests
-from github_bot import *
+from github_bot import create_repo, create_branch, checkout_branch
 from execute_until_build_succeeds import execute_until_build_succeeds
 from update_project_file import update_project_file
 

@@ -3,16 +3,9 @@ from tools import rewrite_test_project_file
 #from llm_clients import openai_client_for_openrouter, openai_client, anthropic_client
 import os
 from openai import Client
-openai_client_for_openrouter = Client(
-    api_key="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",
-    base_url="https://openrouter.ai/api/v1",
-)
-# Custom API endpoint for model.box service
-openai_client = Client(
-    api_key="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",
-)
+from llm_clients import openai_client_for_openrouter
 
-@ell.complex(client=openai_client, model="gpt-4o", temperature=0.0, tools=[rewrite_test_project_file])
+@ell.complex(client=openai_client_for_openrouter, model="gpt-4o", temperature=0.0, tools=[rewrite_test_project_file])
 def add_project_references(test_project_file_path: str, project_paths_to_add_to_references: list[str]):
     """
     Your only responsibility is to add project references to the csproj test project file that are given to you.
