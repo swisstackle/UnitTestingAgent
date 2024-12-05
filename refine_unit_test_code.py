@@ -212,11 +212,14 @@ def parse_function_calls(reasoningoutput:str, unit_test_path:str):
     {unit_test_path}
     """
 
-def parse_function_calls_until_success(reasoningoutput:str, unit_test_path:str, max_retries=5):
-   try:
-       parsed = parse_function_calls(reasoningoutput, unit_test_path)
-       return parsed
-   except ValidationError as e:
-       print(f"Attempt {attempt + 1} failed due to validation error: {str(e)}")
-       if attempt < max_retries - 1:
-         raise
+from pydantic import ValidationError
+
+def parse_function_calls_until_success(reasoningoutput: str, unit_test_path: str, max_retries=5):
+    for attempt in range(max_retries):
+        try:
+            parsed = parse_function_calls(reasoningoutput, unit_test_path)
+            return parsed
+        except ValidationError as e:
+            print(f"Attempt {attempt + 1} failed due to validation error: {str(e)}")
+            if attempt >= max_retries - 1:
+                raise
