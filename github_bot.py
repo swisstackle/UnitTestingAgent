@@ -41,7 +41,10 @@ def push_to_origin(repo, branch, max_retries=3):
 def create_pr(title, description, head, base, repo, max_retries=3):
     for attempt in range(max_retries):
         try:
-            auth = Auth.Token("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")
+            token = os.getenv("GITHUB_PAT")
+            if not token:
+                raise ValueError("GitHub PAT not found in environment variables")
+            auth = Auth.Token(token)
             g = Github(auth=auth)
             head = head.replace('\\', '/')
             github_repo = g.get_repo(repo)

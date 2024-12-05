@@ -65,6 +65,9 @@ def execute_until_build_succeeds(
                 stage_and_commit_and_push(root_directory, test_file_path, csproj_path)
                 user_response = input(f"[INPUT NEEDED] I need your help with an error or with a failing test. Please pull the code and check it out. Once you checked it out, please either let me know how to fix it (or a hint) or fix it yourself.")
                 # call refine with feedback, get the result, parse it to get the code (and set "parsed" to it) and continue with execution
+                test_cases = unit_tests_first
+                if parsed is not None and hasattr(parsed, 'new_unit_test_code'):
+                    test_cases = parsed.new_unit_test_code
                 refined_unparsed = refine_code_based_on_suggestion(sut_content,
                 function_name,
                 additional_information,
@@ -73,10 +76,10 @@ def execute_until_build_succeeds(
                 unit_testing_engine,
                 file_contents,
                 user_response,
-                unit_tests_first,
+                test_cases,
                 build_result)
                 # Getting the tool calls from the refined unit tests
-                toolsparsed = parse_function_calls_until_success(unit_tests, test_file_path)
+                toolsparsed = parse_function_calls_until_success(refined_unparsed, test_file_path)
                 # Executing the tool calls
                 for tool_call in toolsparsed.tool_calls:
                     tool_call()
