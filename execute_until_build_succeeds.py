@@ -48,7 +48,7 @@ def execute_until_build_succeeds(
         # Execute the build and tests
         build_result = execute_build_and_tests(testprojectdirectory, namespace_and_classname)
 
-        if "Build and Tests Executed Successfully" in build_result:
+        if "All tests passed successfully!" in build_result:
             print("Success! All tests passed.")
             break
         else:
@@ -73,7 +73,8 @@ def execute_until_build_succeeds(
                 unit_testing_engine,
                 file_contents,
                 user_response,
-                unit_tests_first)
+                unit_tests_first,
+                build_result)
                 # Getting the tool calls from the refined unit tests
                 toolsparsed = parse_function_calls_until_success(unit_tests, test_file_path)
                 # Executing the tool calls

@@ -8,18 +8,17 @@ from refine_unit_test_code import parse_function_calls_until_success
 import os
 
 @ell.simple(model="anthropic/claude-3.5-sonnet", max_tokens=8000, client=openai_client_for_openrouter, temperature=0.0)
-def refine_code_based_on_suggestion(sut: str, function: str, additional_information: str, knowledge_base_content: str, test_file_path: str, unit_testing_engine: str, file_contents: list[str], suggestion_from_developer: str, test_cases_code: str):
+def refine_code_based_on_suggestion(sut: str, function: str, additional_information: str, knowledge_base_content: str, test_file_path: str, unit_testing_engine: str, file_contents: list[str], suggestion_from_developer: str, test_cases_code: str, build_errors: str):
     # I want to format all entries in file_contants in markdown code blocks
     # It should be a formatted string in markdown
     formatted_file_contents = ""
     for file_path, file_content in file_contents.items():
         formatted_file_contents += f"# {file_path}\n```\n{file_content}\n```\n"
 
-    repeated = "You solely are responsible for implementing the suggestion. Change NOTHING else. Don't remove any test cases unless explicitly told to. Make sure the unit test class will be in the \"Enveritus2.Test\" namespace." 
+    repeated = "You solely are responsible for implementing the suggestion. Change NOTHING else. Don't remove any test cases unless explicitly told to. Don't remove any setup unless specifically told to, Make sure the unit test class will be in the \"Enveritus2.Test\" namespace." 
 
     user_prompt = """
 You are a senior C# developer with expertise in unit approval testing. Your task is to implement a suggestion from a real human senior software developer.
-You are a test after development developer, which means that you have to adjust the unit test code so that the tests pass. This is also called "approval testing."
 Make sure the unit test class will be in the "Enveritus2.Test" namespace.
 Please review the following information carefully:
 
@@ -67,6 +66,9 @@ Please review the following information carefully:
 
 {repeated}
 
+<failed_tests or build_errors>
+{build_errors}
+</failed_tests or build_errors>
 
 Now, analyze the situation and plan any necessary changes. Wrap your analysis inside <test_code_analysis> tags:
 
@@ -133,7 +135,8 @@ Remember to rigorously follow the program logic and the knowledge base. Ensure t
         unit_testing_engine=unit_testing_engine,
         suggestion_from_developer=suggestion_from_developer,
         test_cases_code=test_cases_code,
-        repeated=repeated
+        repeated=repeated,
+        build_errors=build_errors
     )
     return [
         ell.user(user_prompt)
