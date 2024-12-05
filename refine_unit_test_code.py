@@ -2,11 +2,10 @@
 import ell
 # add importds for rewrite_unit_test_file and rewrite_test_project_file
 from tools import rewrite_unit_test_file
-from llm_clients import openai_client_for_openrouter, openai_client
+from llm_clients import openai_client_for_openrouter
 from format_with_line_numbers import format_code_with_line_numbers
 from VectorStore import VectorStore
 from pydantic import BaseModel, Field
-from typing import List
 
 class BuildErrors(BaseModel):
     builderrors: list[str] = Field(description="the list of build errors with their error code and description. Do not include the stacktrace.")
