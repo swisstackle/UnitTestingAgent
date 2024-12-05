@@ -6,7 +6,7 @@ from pydantic import ValidationError
 import time
 from tools import *
 import re
-from refine_unit_test_code import refine_code_based_on_errors, parse_function_calls_until_success
+from BuildExecutor import BuildExecutor
 from project_names_utils import get_project_references, find_unreferenced_csproj_files
 from project_file_agents import add_project_references
 from llm_clients import openai_client, openai_client_for_openrouter
@@ -16,6 +16,7 @@ from execute_build_and_tests import execute_build_and_tests
 from github_bot import create_repo, create_branch, checkout_branch
 from execute_until_build_succeeds import execute_until_build_succeeds
 from update_project_file import update_project_file
+from CodeRefiner import CodeRefiner
 
 ell.init(default_client=openai_client_for_openrouter, store='./logdir', autocommit=True, verbose=True)
 
@@ -93,12 +94,13 @@ def main():
         file_contents=file_contents if args.files else None,
         unit_testing_engine=args.unittestingengine
         )
+    coderefiner = CodeRefiner()
     if "```csharp" in unit_tests_first:
         # Here, we are parsing the unit tests generated to identify any tool calls that need to be executed.
         # The only possible tool call that can be parsed at this point is to create the unit test file.
         # We use the parse_function_calls function to identify this tool call within the response of the previous agent.
         # Why are we not directly outputting the tool calls with build_unit_tests? The reason is because o1-mini and reflection-70b models do not support tool calls.
-        function_calls = parse_function_calls_until_success(unit_tests_first, args.test_file)
+        function_calls = coderefiner.parse_function_calls_until_success(unit_tests_first, args.test_file)
         
         # Once we have identified the tool call, we iterate through each of them and execute them.
         # This is necessary to ensure that the unit test file is created before proceeding with the testing process.

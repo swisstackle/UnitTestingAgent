@@ -1,7 +1,7 @@
 import ell
 from llm_clients import openai_client_for_openrouter
 
-@ell.simple(model="anthropic/claude-3.5-sonnet", max_tokens=8000, client=openai_client_for_openrouter, temperature=0.0)
+@ell.simple(model="qwen/qwen-2.5-coder-32b-instruct", max_tokens=8000, client=openai_client_for_openrouter, temperature=0.0)
 def build_unit_tests(
     function: str,
     sut: str,
