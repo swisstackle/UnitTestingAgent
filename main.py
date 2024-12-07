@@ -10,13 +10,13 @@ from BuildExecutor import BuildExecutor
 from project_names_utils import get_project_references, find_unreferenced_csproj_files
 from project_file_agents import add_project_references
 from llm_clients import openai_client, openai_client_for_openrouter
-from unit_test_case_generation import unit_test_case_generation
-from build_unit_tests import build_unit_tests
+from Initial_Code_Creator import Initial_Code_Creator
+from TestCaseGenerator import TestCaseGenerator
 from execute_build_and_tests import execute_build_and_tests
-from github_bot import create_repo, create_branch, checkout_branch
 from execute_until_build_succeeds import execute_until_build_succeeds
 from update_project_file import update_project_file
 from CodeRefiner import CodeRefiner
+from GitHubManager import GitHubManager
 
 ell.init(default_client=openai_client_for_openrouter, store='./logdir', autocommit=True, verbose=True)
 
@@ -35,14 +35,17 @@ def main():
     parser.add_argument('--branch', type=str, required=True, help='Name of the branch')
     args = parser.parse_args()
 
-    # Create a Git repository object from the root directory path
-    repo = create_repo(args.root_directory)
+    githubmanager = GitHubManager(args.root_directory)
+    repo = githubmanager.get_repo()
+    initial_code_creator = Initial_Code_Creator()
+    testcasegenerator = TestCaseGenerator()
+
     # Get the test file name without extension to use as branch and PR name
     branch_and_pr_name = args.branch
     # Create a new Git branch with the test file name
-    branch = create_branch(repo, branch_and_pr_name)
+    branch = githubmanager.get_or_create_branch(branch_and_pr_name)
     # Switch to the newly created branch
-    checkout_branch(branch)
+    githubmanager.checkout_branch(branch)
 
     testprojectdirectory = os.path.dirname(args.csproj)
 
@@ -64,7 +67,7 @@ def main():
 
     # Generating the unit test cases for the function under test
     # This does not spit out any code yet, just the test cases.
-    test_cases = unit_test_case_generation(
+    test_cases = testcasegenerator.unit_test_case_generation(
         sut_content,
         args.function,
         knowledge_base_content,
@@ -84,7 +87,7 @@ def main():
     # - file_contents: The contents of any additional files provided, if any.
     # - unit_testing_engine: The unit testing engine to use for the tests.
     # The function returns the initial unit tests code, which is stored in the unit_tests_first variable.
-    unit_tests_first = build_unit_tests(
+    unit_tests_first = initial_code_creator.build_unit_tests(
         function=args.function,
         sut=sut_content,
         test_cases=test_cases,
