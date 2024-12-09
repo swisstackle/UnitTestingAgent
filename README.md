@@ -32,3 +32,7 @@ Also includes agents to parse the outputs of the refiner ant convert it into fun
 ## update_project_file.py
 
 Contains the method to update the project file based on dependencies.
+
+## VextorStore.py
+
+Contains methods to create memories and search them.
