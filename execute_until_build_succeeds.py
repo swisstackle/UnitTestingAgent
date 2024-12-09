@@ -66,8 +66,14 @@ def execute_until_build_succeeds(
                 user_response = input(f"[INPUT NEEDED] I need your help with an error or with a failing test. Please pull the code and check it out. Once you checked it out, please either let me know how to fix it (or a hint) or fix it yourself.")
                 # call refine with feedback, get the result, parse it to get the code (and set "parsed" to it) and continue with execution
                 test_cases = unit_tests_first
-                if 'test_file_content' in locals():
-                    test_cases = parsed.new_unit_test_code
+
+                # Read test file content before usage
+                with open(test_file_path, 'r') as file:
+                    test_file_content = file.read()
+
+                if test_file_content:
+                    test_cases = test_file_content
+
                 refined_unparsed = coderefiner.refine_code_based_on_suggestion(sut_content,
                 function_name,
                 additional_information,

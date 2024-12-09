@@ -4,7 +4,7 @@ from tools import rewrite_unit_test_file
 from LlmClientFactory import LlmClientFactory, ClientType
 from format_with_line_numbers import format_code_with_line_numbers
 from VectorStore import VectorStore
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 
 client = LlmClientFactory.get_client(ClientType.OPENROUTER)
 
