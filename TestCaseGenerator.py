@@ -1,9 +1,12 @@
 import ell
-from llm_clients import openai_client_for_openrouter
+from LlmClientFactory import LlmClientFactory, ClientType
 
-@ell.simple(model="openai/gpt-4o-mini-2024-07-18", client=openai_client_for_openrouter, temperature=0.0, seed=42)
-def unit_test_case_generation(sut: str, function: str, knowledge_base_content: str, additional_information: str, test_project_file: str, file_contents: list = None):
-    """
+client = LlmClientFactory.get_client(ClientType.OPENROUTER)
+
+class TestCaseGenerator:
+    @ell.simple(model="openai/gpt-4o-mini-2024-07-18", client=client, temperature=0.0, seed=42)
+    def unit_test_case_generation(self, sut: str, function: str, knowledge_base_content: str, additional_information: str, test_project_file: str, file_contents: list = None):
+        """
     You are an agent responsible for generating unit test cases for the function under test.
     You will be given the function under test, the file where it is located, a list of potentially relevant files and the knowledge base.
     Your task is to generate a list of unit test cases for the function under test. You MUST NOT generate any code.
@@ -12,9 +15,9 @@ def unit_test_case_generation(sut: str, function: str, knowledge_base_content: s
     You MUST share your thought process with the user as outlined in the user prompt. If you don't share your thought process, you will be fired.
     You MUST cover every possible path through the function under test. If you don't do this, you will be fired.
     You MUST respect the additional information given by the user prompt. You will get fired if you don't.
-    """
+        """
 
-    return """
+        return """
         Hello unit test case generation agent.
         # Knowledge Base:
         ```
@@ -40,5 +43,4 @@ def unit_test_case_generation(sut: str, function: str, knowledge_base_content: s
         ```
         {test_project_file}
         ```
-    """.format(additional_information=additional_information, knowledge_base_content=knowledge_base_content, function=function, sut_content=sut, file_contents=file_contents, test_project_file=test_project_file)
-
+        """.format(additional_information=additional_information, knowledge_base_content=knowledge_base_content, function=function, sut_content=sut, file_contents=file_contents, test_project_file=test_project_file)

@@ -1,21 +1,25 @@
 import ell
-from llm_clients import openai_client_for_openrouter
+from LlmClientFactory import LlmClientFactory, ClientType
 
-@ell.simple(model="qwen/qwen-2.5-coder-32b-instruct", max_tokens=8000, client=openai_client_for_openrouter, temperature=0.0)
-def build_unit_tests(
-    function: str,
-    sut: str,
-    test_cases: str,
-    test_project_file: str,
-    additional_information: str,
-    knowledge_base_content: str,
-    unit_testing_engine: str,
-    file_contents: dict = None,
-):
-    formatted_file_contents = ""
-    for file_path, file_content in file_contents.items():
-        formatted_file_contents += f"# {file_path}\n```\n{file_content}\n```\n"
-    user_prompt = f"""
+client = LlmClientFactory.get_client(ClientType.OPENROUTER)
+
+class Initial_Code_Creator:
+    @ell.simple(model="qwen/qwen-2.5-coder-32b-instruct", max_tokens=8000, client=client, temperature=0.0)
+    def build_unit_tests(
+        self,
+        function: str,
+        sut: str,
+        test_cases: str,
+        test_project_file: str,
+        additional_information: str,
+        knowledge_base_content: str,
+        unit_testing_engine: str,
+        file_contents: dict = None,
+    ):
+        formatted_file_contents = ""
+        for file_path, file_content in file_contents.items():
+            formatted_file_contents += f"# {file_path}\n```\n{file_content}\n```\n"
+        user_prompt = f"""
         You are an expert C# and .NET developer, specializing in creating unit approval tests for .NET applications. Your task is to create unit tests for a specific function based on the provided information and knowledge base. It is crucial that you strictly adhere to the provided knowledge base at all times.
         Very IMPORTANT: In the code that you generate, for every line that you make, you have to write a comment where in the knowledgebase you found similar code that you used. If you have to write code that you didnt find in the knowledge base, just write "couldnt find" as a comment.
         Make sure that the classes in the unit test file reside within the namespace of the test project, not where the SUT is.
@@ -82,8 +86,8 @@ def build_unit_tests(
         Please begin your analysis now.
         ```
     """.format(knowledge_base_content=knowledge_base_content, unit_testing_engine=unit_testing_engine, function=function, sut=sut, test_cases=test_cases, additional_information=additional_information, relevant_files=formatted_file_contents)
-    with open("user_prompt.txt", "w") as f:
-        f.write(user_prompt)
-    return [
-        ell.user(user_prompt)
-    ]
+        with open("user_prompt.txt", "w") as f:
+            f.write(user_prompt)
+        return [
+            ell.user(user_prompt)
+        ]
