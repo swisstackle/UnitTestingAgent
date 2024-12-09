@@ -6,9 +6,6 @@ from pydantic import ValidationError
 import time
 from tools import *
 import re
-from BuildExecutor import BuildExecutor
-from project_names_utils import get_project_references, find_unreferenced_csproj_files
-from project_file_agents import add_project_references
 from Initial_Code_Creator import Initial_Code_Creator
 from TestCaseGenerator import TestCaseGenerator
 from execute_build_and_tests import execute_build_and_tests
