@@ -36,3 +36,7 @@ Contains the method to update the project file based on dependencies.
 ## VextorStore.py
 
 Contains methods to create memories and search them.
+
+## BuildExecutor.py
+
+Contains methods to execute the build and tests.
