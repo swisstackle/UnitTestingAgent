@@ -9,7 +9,6 @@ import re
 from BuildExecutor import BuildExecutor
 from project_names_utils import get_project_references, find_unreferenced_csproj_files
 from project_file_agents import add_project_references
-from llm_clients import openai_client, openai_client_for_openrouter
 from Initial_Code_Creator import Initial_Code_Creator
 from TestCaseGenerator import TestCaseGenerator
 from execute_build_and_tests import execute_build_and_tests
@@ -17,8 +16,10 @@ from execute_until_build_succeeds import execute_until_build_succeeds
 from update_project_file import update_project_file
 from CodeRefiner import CodeRefiner
 from GitHubManager import GitHubManager
+from LlmClientFatory import LlmClientFactory
 
-ell.init(default_client=openai_client_for_openrouter, store='./logdir', autocommit=True, verbose=True)
+client = LlmClientFactory.get_client(ClientType.OPENROUTER)
+ell.init(default_client=client, store='./logdir', autocommit=True, verbose=True)
 
 def main():
     parser = argparse.ArgumentParser(description="Generate and execute unit tests.")
